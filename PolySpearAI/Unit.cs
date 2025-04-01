@@ -8,39 +8,21 @@ using static PolySpearAI.Program;
 
 namespace PolySpearAI
 {
-    public class Unit
+    public record Unit
     {
         public string ID { get; set; }
         [JsonIgnore] public PLAYER Player;
         public List<Weapon> Items { get; set; }
-        public Side Rotation { get; set; }
+        public Side Rotation;
         [JsonIgnore] public int Q { get; private set; }
         [JsonIgnore] public int R { get; private set; }
-
-        public Unit()
+  
+        public Unit(string id, List<Weapon> items, Side rotation)
         {
-
-        }
-
-        public Unit(string iD, List<Weapon> items, Side rotation)
-        {
-            ID = iD;
+            ID = id;
             Items = items;
             Rotation = rotation;
-        }
-
-        public Unit(Unit reference)
-        {
-            ID = reference.ID;
-            Player = reference.Player;
-            Items = new List<Weapon>(reference.Items);
-            Rotation = reference.Rotation;
-        }
-
-        public Unit Clone()
-        {
-            return new Unit(this);
-        }
+        } 
 
         public void SetPosition(Hex position)
         {
@@ -58,12 +40,5 @@ namespace PolySpearAI
             int effectiveIndex = (((int)side - (int)Rotation) + 6) % 6;
             return Items[effectiveIndex];
         }
-
-        public void SetRotation(Side newRotation)
-        {
-            Rotation = newRotation;
-        }
-
-        public override string ToString() => $"{ID} (P{Player}) Rot:{Rotation}";
     }
 }

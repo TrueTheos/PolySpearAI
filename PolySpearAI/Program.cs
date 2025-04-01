@@ -31,8 +31,10 @@ namespace PolySpearAI
 
             while (true)
             {
+                Console.Clear();
+                grid.PrintGrid();
                 Console.WriteLine($"Curent player: {CurrentPlayer}\n");
-                AI ai = new AI(grid);
+                /*AI ai = new AI(grid);
                 var bestMoveTask = ai.FindBestMove();
                 bestMoveTask.Wait();
                 (Hex from, Hex to) = bestMoveTask.Result;
@@ -44,16 +46,21 @@ namespace PolySpearAI
                 else
                 {
                     Console.WriteLine("\nAI Suggestion: No valid moves available.");
-                }
+                }*/
 
 
-                Console.WriteLine("\nEnter unit coordinates to move (q,r), 's' to skip or 'exit' to quit:");
+                Console.WriteLine("\nEnter unit coordinates to move (q,r), 'u' to undo, 's' to skip, 'exit':");
                 string input = Console.ReadLine();
                 if (input.ToLower() == "exit")
                     break;
                 if(input.ToLower() == "s")
                 {
                     ChangePlayer();
+                    continue;
+                }
+                if (input.ToLower() == "u")
+                {
+                    if (grid.UndoMove()) ChangePlayer();
                     continue;
                 }
 
@@ -67,26 +74,24 @@ namespace PolySpearAI
                 }
 
                 Hex selectedHex = grid.GetHex(q, r);
-                if (selectedHex == null || selectedHex.Occupant == null || selectedHex.Occupant.Player != CurrentPlayer)
+                Unit selectedUnit = grid.GetUnitAtHex(selectedHex);
+                if (selectedHex == null || selectedUnit == null || selectedUnit.Player != CurrentPlayer)
                 {
                     Console.WriteLine("No valid unit at that location for the current player.");
                     continue;
                 }
 
-                // Display allowed moves (limited to forward, left, and right).
-                List<Hex> allowedMoves = grid.AllowedMoves(selectedHex);
+                List<Hex> allowedMoves = grid.AllowedMoves(selectedUnit);
                 if (allowedMoves.Count == 0)
                 {
                     Console.WriteLine("No allowed moves for that unit.");
                     continue;
                 }
 
-                // Create a mapping for ease of display.
                 var directionMapping = new Dictionary<Side, Hex>();
                 foreach (Side side in Enum.GetValues(typeof(Side)))
                 {
                     Hex neighbor = grid.GetNeighbor(selectedHex,side);
-                    // Only add if neighbor is part of allowed moves.
                     if (allowedMoves.Contains(neighbor))
                         directionMapping[side] = neighbor;
                 }
@@ -112,10 +117,9 @@ namespace PolySpearAI
                 Hex destination = allowedList[moveIndex].hex;
 
                 // Attempt to move the unit.
-                bool success = grid.MoveUnit(selectedHex, destination);
+                bool success = grid.MoveUnit(selectedUnit, destination);
                 if (success) ChangePlayer();
 
-                Console.Clear();
                 grid.PrintGrid();
             }
         }

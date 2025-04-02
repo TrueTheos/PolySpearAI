@@ -28,41 +28,34 @@ namespace PolySpearAI
             Hex bestFrom = null;
             Hex bestTo = null;
             int bestScore = MIN_VALUE;
-            int alpha = MIN_VALUE;
-            int beta = MAX_VALUE;
-            PLAYER aiPlayer = Program.CurrentPlayer;
+            PLAYER originalPlayer = Program.CurrentPlayer;
 
-            var playerUnits = GetPlayerUnits(aiPlayer);
-            var originalUnitPositions = new Dictionary<string, Hex>();
+            var playerUnits = GetPlayerUnits(originalPlayer);
 
             foreach (var unit in playerUnits)
             {
-                originalUnitPositions[unit.ID] = _grid.GetHex(unit);
-            }
-
-            foreach (var unit in playerUnits)
-            {
-                var unitCurrentPos = _grid.GetHex(unit);
+                var currentPos = _grid.GetHex(unit);
                 var moves = _grid.AllowedMoves(unit);
 
                 foreach (var move in moves)
                 {
-                    Hex simulatedTo = _grid.GetHex(move.Q, move.R);
-
                     var previousMove = new PreMove(_grid);
+
+                    Hex simulatedTo = _grid.GetHex(move.Q, move.R);
                     _grid.MoveUnit(unit, simulatedTo);
 
-                    int score = Minimax(MAX_DEPTH - 1, alpha, beta, true, aiPlayer);
+                    int score = Minimax(MAX_DEPTH - 1, MIN_VALUE, MAX_VALUE, originalPlayer, Program.GetEnemyPlayer(originalPlayer));
 
+                    // Revert the move.
                     _grid.ApplyMove(previousMove);
 
+                    // If this move yields a better score, update our best move.
                     if (score > bestScore)
                     {
                         bestScore = score;
-                        bestFrom = unitCurrentPos;
+                        bestFrom = currentPos;
                         bestTo = move;
                     }
-                    alpha = Math.Max(alpha, bestScore);
                 }
             }
 
@@ -81,86 +74,64 @@ namespace PolySpearAI
             return (bestFrom, bestTo);
         }
 
-        private class MoveEvaluation
+        private int Minimax(int depth, int alpha, int beta, PLAYER originalPlayer, PLAYER playerToMove)
         {
-            public int Score { get; set; }
-            public Hex From { get; set; }
-            public Hex To { get; set; }
-        }
-
-        private int Minimax(int depth, int alpha, int beta, bool maximizingPlayer, PLAYER aiPlayer)
-        {
-            PLAYER currentPlayer = maximizingPlayer ? aiPlayer : Program.GetEnemyPlayer(aiPlayer);
-
-            // Base case: depth reached or game over
             if (depth == 0 || IsGameOver())
             {
-                return EvaluatePosition(aiPlayer);
+                return EvaluatePosition(originalPlayer);
             }
 
-            if (maximizingPlayer)
+            if (playerToMove == originalPlayer)
             {
-                int bestValue = MIN_VALUE;
-                var playerUnits = GetPlayerUnits(currentPlayer);
-
-                foreach (var unit in playerUnits)
+                int maxEval = MIN_VALUE;
+                foreach (var unit in GetPlayerUnits(playerToMove))
                 {
-                    var moves = _grid.AllowedMoves(unit);
-
-                    foreach (var move in moves)
+                    foreach (var move in _grid.AllowedMoves(unit))
                     {
-                        Hex simulatedTo = _grid.GetHex(move.Q, move.R);
-
                         var previousMove = new PreMove(_grid);
+                        Hex simulatedTo = _grid.GetHex(move.Q, move.R);
                         _grid.MoveUnit(unit, simulatedTo);
-                        int score = Minimax(depth - 1, alpha, beta, false, aiPlayer);
+
+                        int eval = Minimax(depth - 1, alpha, beta, originalPlayer, Program.GetEnemyPlayer(playerToMove));
 
                         _grid.ApplyMove(previousMove);
 
-                        bestValue = Math.Max(bestValue, score);
-                        alpha = Math.Max(alpha, bestValue);
+                        maxEval = Math.Max(maxEval, eval);
+                        alpha = Math.Max(alpha, eval);
 
                         if (beta <= alpha)
+                        {
                             break;
+                        }
                     }
-
-                    if (beta <= alpha)
-                        break;
                 }
-
-                return bestValue;
+                return maxEval;
             }
             else
             {
-                int bestValue = MAX_VALUE;
-                var playerUnits = GetPlayerUnits(currentPlayer);
-
-                foreach (var unit in playerUnits)
+                int minEval = MAX_VALUE;
+                foreach (var unit in GetPlayerUnits(playerToMove))
                 {
-                    var moves = _grid.AllowedMoves(unit);
-
-                    foreach (var move in moves)
+                    foreach (var move in _grid.AllowedMoves(unit))
                     {
-                        Hex simulatedTo = _grid.GetHex(move.Q, move.R);
-
                         var previousMove = new PreMove(_grid);
+                        Hex simulatedTo = _grid.GetHex(move.Q, move.R);
                         _grid.MoveUnit(unit, simulatedTo);
-                        int score = Minimax( depth - 1, alpha, beta, true, aiPlayer);
+
+                        int eval = Minimax(depth - 1, alpha, beta, originalPlayer, Program.GetEnemyPlayer(playerToMove));
 
                         _grid.ApplyMove(previousMove);
 
-                        bestValue = Math.Min(bestValue, score);
-                        beta = Math.Min(beta, bestValue);
+                        minEval = Math.Min(minEval, eval);
+                        beta = Math.Min(beta, eval);
 
                         if (beta <= alpha)
+                        {
                             break;
+                        }
                     }
-
-                    if (beta <= alpha)
-                        break;
                 }
-
-                return bestValue;
+                return minEval;
             }
         }
 

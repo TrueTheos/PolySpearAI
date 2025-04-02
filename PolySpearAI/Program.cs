@@ -15,6 +15,10 @@ namespace PolySpearAI
             HexGrid grid = new HexGrid(5, 5);
             grid.PrintGrid();
 
+            if(!File.Exists(PRESET_FILE_PATH))
+            {
+                throw new Exception($"No units.json! at {Path.GetFullPath(PRESET_FILE_PATH)}");
+            }
             UnitPreset preset = PresetLoader.LoadPresets(PRESET_FILE_PATH);
 
             foreach (var unit in preset.Units)

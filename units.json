@@ -1,0 +1,76 @@
+{
+  "Units": [
+    {
+      "Rotation": "UP_RIGHT",
+      "ID": "E4",
+      "Items": [
+        "SPEAR",
+        "SHIELD",
+        "EMPTY",
+        "EMPTY",
+        "EMPTY",
+        "SHIELD"
+      ]
+    },
+    {
+      "Rotation": "UP_RIGHT",
+      "ID": "E3",
+      "Items": [
+        "BOW",
+        "EMPTY",
+        "EMPTY",
+        "EMPTY",
+        "EMPTY",
+        "EMPTY"
+      ]
+    },
+    {
+      "Rotation": "UP_RIGHT",
+      "ID": "E2",
+      "Items": [
+        "SPEAR",
+        "EMPTY",
+        "EMPTY",
+        "EMPTY",
+        "EMPTY",
+        "EMPTY"
+      ]
+    },
+    {
+      "Rotation": "UP_RIGHT",
+      "ID": "O4",
+      "Items": [
+        "SPEAR",
+        "SPEAR",
+        "EMPTY",
+        "EMPTY",
+        "EMPTY",
+        "SPEAR"
+      ]
+    },
+    {
+      "Rotation": "UP_RIGHT",
+      "ID": "O3",
+      "Items": [
+        "AXE",
+        "PUSH",
+        "EMPTY",
+        "PUSH",
+        "EMPTY",
+        "PUSH"
+      ]
+    },
+    {
+      "Rotation": "UP_RIGHT",
+      "ID": "O2",
+      "Items": [
+        "AXE",
+        "AXE",
+        "EMPTY",
+        "EMPTY",
+        "EMPTY",
+        "AXE"
+      ]
+    }
+  ]
+}

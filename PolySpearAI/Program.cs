@@ -1,4 +1,7 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json;
+using System;
+using System.Diagnostics;
+using System.Text.Json.Serialization;
 
 namespace PolySpearAI
 {
@@ -17,14 +20,14 @@ namespace PolySpearAI
             foreach (var unit in preset.Units)
             {
                 Console.WriteLine();
-                Console.Write($"Place {unit.ID} (q,r,side, player): ");
-                var pos = Console.ReadLine().Split(',');
+                Console.Write($"Place {unit.ID} (q r side player): ");
+                string pos = Console.ReadLine();
 
-                int q = int.Parse(pos[0]);
-                int r = int.Parse(pos[1]);
+                int q = int.Parse(pos[0].ToString());
+                int r = int.Parse(pos[1].ToString());
 
-                unit.Player = (PLAYER)int.Parse(pos[3]);
-                grid.PlaceUnit(q, r, unit, (Side)int.Parse(pos[2]));
+                unit.Player = (PLAYER)int.Parse(pos[3].ToString());
+                grid.PlaceUnit(q, r, unit, (Side)int.Parse(pos[2].ToString()));
                 Console.Clear();
                 grid.PrintGrid();
             }
@@ -34,19 +37,20 @@ namespace PolySpearAI
                 Console.Clear();
                 grid.PrintGrid();
                 Console.WriteLine($"Curent player: {CurrentPlayer}\n");
-                /*AI ai = new AI(grid);
-                var bestMoveTask = ai.FindBestMove();
-                bestMoveTask.Wait();
-                (Hex from, Hex to) = bestMoveTask.Result;
+                AI ai = new AI(grid);
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                (Hex from, Hex to) = ai.FindBestMove();
+                stopwatch.Stop();
 
                 if (from != null)
                 {
                     Console.WriteLine($"\nAI Suggestion: Move from ({from.Q},{from.R}) to ({to.Q},{to.R})");
+                    Console.WriteLine($"Time: {stopwatch.ElapsedMilliseconds}ms");
                 }
                 else
                 {
                     Console.WriteLine("\nAI Suggestion: No valid moves available.");
-                }*/
+                }
 
 
                 Console.WriteLine("\nEnter unit coordinates to move (q,r), 'u' to undo, 's' to skip, 'exit':");
@@ -61,6 +65,7 @@ namespace PolySpearAI
                 if (input.ToLower() == "u")
                 {
                     if (grid.UndoMove()) ChangePlayer();
+                    grid.ClearHistory();
                     continue;
                 }
 
@@ -140,7 +145,7 @@ namespace PolySpearAI
         public static UnitPreset LoadPresets(string filePath)
         {
             string json = File.ReadAllText(filePath);
-            var presets = JsonConvert.DeserializeObject<UnitPreset>(json);
+            var presets = JsonSerializer.Deserialize<UnitPreset>(json);
             return presets;
         }
 
@@ -151,32 +156,31 @@ namespace PolySpearAI
             if (File.Exists(Program.PRESET_FILE_PATH))
             {
                 string json = File.ReadAllText(Program.PRESET_FILE_PATH);
-                preset = JsonConvert.DeserializeObject<UnitPreset>(json);
+                preset = JsonSerializer.Deserialize<UnitPreset>(json);
                 if (preset == null || preset.Units == null)
                 {
-                    preset = new UnitPreset(new List<Unit>());
+                    preset = new UnitPreset();
                 }
             }
             else
             {
-                preset = new UnitPreset(new List<Unit>());
+                preset = new UnitPreset();
             }
 
             preset.Units.Add(unit);
 
-            string outputJson = JsonConvert.SerializeObject(preset, Formatting.Indented);
+            string outputJson = JsonSerializer.Serialize(preset);
             File.WriteAllText(Program.PRESET_FILE_PATH, outputJson);
         }
     }
 
-    [Serializable]
     public class UnitPreset
     {
-        public List<Unit> Units;
+        public List<Unit> Units { get; set; }
 
-        public UnitPreset(List<Unit> units)
+        public UnitPreset()
         {
-            Units = units;
+            Units = new();
         }
     }
 }

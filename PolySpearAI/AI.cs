@@ -20,60 +20,46 @@ namespace PolySpearAI
             _grid = grid;
         }
 
-        public async Task<(Hex From, Hex To)> FindBestMove()
+        public (Hex From, Hex To) FindBestMove()
         {
-            Hex bestFrom = null;
-            Hex bestTo = null;
+            Hex bestFrom = default;
+            Hex bestTo = default;
             int bestScore = MIN_VALUE;
             int alpha = MIN_VALUE;
             int beta = MAX_VALUE;
             PLAYER aiPlayer = Program.CurrentPlayer;
 
             var playerUnits = GetPlayerUnits(aiPlayer);
-
-            var tasks = new List<Task<MoveEvaluation>>();
+            var originalUnitPositions = new Dictionary<string, Hex>();
 
             foreach (var unit in playerUnits)
             {
-                var unitMovesTask = Task.Run(() =>
-                {
-                    var moves = _grid.AllowedMoves(unit);
-                    MoveEvaluation eval = new MoveEvaluation { Score = MIN_VALUE };
-
-                    foreach (var move in moves)
-                    {
-                        HexGrid simulatedGrid = SimulateGrid(_grid);
-                        Hex simulatedTo = simulatedGrid.GetHex(move.Q, move.R);
-
-                        simulatedGrid.MoveUnit(unit, simulatedTo);
-                        int score = Minimax(simulatedGrid, MAX_DEPTH - 1, alpha, beta, false, aiPlayer);
-
-                        if (score > bestScore)
-                        {
-                            bestScore = score;
-                            bestFrom = _grid.GetHex(unit);
-                            bestTo = move;
-                        }
-
-                        alpha = Math.Max(alpha, bestScore);
-                    }
-
-                    return eval;
-                });
-
-
-                tasks.Add(unitMovesTask);
+                originalUnitPositions[unit.ID] = _grid.GetHex(unit);
             }
 
-            var results = await Task.WhenAll(tasks);
-
-            foreach (var eval in results)
+            foreach (var unit in playerUnits)
             {
-                if (eval.Score > bestScore)
+                Hex unitCurrentPos = _grid.GetHex(unit);
+                var moves = _grid.AllowedMoves(unit);
+
+                foreach (var move in moves)
                 {
-                    bestScore = eval.Score;
-                    bestFrom = eval.From;
-                    bestTo = eval.To;
+                    Hex simulatedTo = _grid.GetHex(move.Q, move.R);
+
+                    var previousMove = new PreMove(_grid);
+                    _grid.MoveUnit(unit, simulatedTo);
+
+                    int score = Minimax(MAX_DEPTH - 1, alpha, beta, false, aiPlayer);
+
+                    _grid.ApplyMove(previousMove);
+
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        bestFrom = unitCurrentPos;
+                        bestTo = move;
+                    }
+                    alpha = Math.Max(alpha, bestScore);
                 }
             }
 
@@ -87,33 +73,35 @@ namespace PolySpearAI
             public Hex To { get; set; }
         }
 
-        private int Minimax(HexGrid grid, int depth, int alpha, int beta, bool maximizingPlayer, PLAYER aiPlayer)
+        private int Minimax(int depth, int alpha, int beta, bool maximizingPlayer, PLAYER aiPlayer)
         {
             PLAYER currentPlayer = maximizingPlayer ? aiPlayer : Program.GetEnemyPlayer(aiPlayer);
 
             // Base case: depth reached or game over
-            if (depth == 0 || IsGameOver(grid))
+            if (depth == 0 || IsGameOver())
             {
-                return EvaluatePosition(grid, aiPlayer);
+                return EvaluatePosition(aiPlayer);
             }
 
             if (maximizingPlayer)
             {
                 int maxEval = MIN_VALUE;
-                var playerUnits = GetPlayerUnits(currentPlayer, grid);
+                var playerUnits = GetPlayerUnits(currentPlayer);
 
                 foreach (var unit in playerUnits)
                 {
-                    var moves = grid.AllowedMoves(unit);
+                    var moves = _grid.AllowedMoves(unit);
 
                     foreach (var move in moves)
                     {
-                        HexGrid simulatedGrid = SimulateGrid(grid);
-                        Hex simulatedTo = simulatedGrid.GetHex(move.Q, move.R);
+                        Hex simulatedTo = _grid.GetHex(move.Q, move.R);
 
-                        simulatedGrid.MoveUnit(unit, simulatedTo);
+                        var previousMove = new PreMove(_grid);
+                        _grid.MoveUnit(unit, simulatedTo);
+                        int eval = Minimax(depth - 1, alpha, beta, false, aiPlayer);
 
-                        int eval = Minimax(simulatedGrid, depth - 1, alpha, beta, false, aiPlayer);
+                        _grid.ApplyMove(previousMove);
+
                         maxEval = Math.Max(maxEval, eval);
                         alpha = Math.Max(alpha, eval);
 
@@ -122,26 +110,27 @@ namespace PolySpearAI
                     }
                 }
 
-                return maxEval == MIN_VALUE ? EvaluatePosition(grid, aiPlayer) : maxEval;
+                return maxEval == MIN_VALUE ? EvaluatePosition(aiPlayer) : maxEval;
             }
             else
             {
                 int minEval = MAX_VALUE;
-                var playerUnits = GetPlayerUnits(currentPlayer, grid);
+                var playerUnits = GetPlayerUnits(currentPlayer);
 
                 foreach (var unit in playerUnits)
                 {
-                    var moves = grid.AllowedMoves(unit);
+                    var moves = _grid.AllowedMoves(unit);
 
                     foreach (var move in moves)
                     {
-                        HexGrid simulatedGrid = SimulateGrid(grid);
-                        Hex simulatedFrom = simulatedGrid.GetHex(unit);
-                        Hex simulatedTo = simulatedGrid.GetHex(move.Q, move.R);
+                        Hex simulatedTo = _grid.GetHex(move.Q, move.R);
 
-                        simulatedGrid.MoveUnit(unit, simulatedTo);
+                        var previousMove = new PreMove(_grid);
+                        _grid.MoveUnit(unit, simulatedTo);
+                        int eval = Minimax( depth - 1, alpha, beta, true, aiPlayer);
 
-                        int eval = Minimax(simulatedGrid, depth - 1, alpha, beta, true, aiPlayer);
+                        _grid.ApplyMove(previousMove);
+
                         minEval = Math.Min(minEval, eval);
                         beta = Math.Min(beta, eval);
 
@@ -150,33 +139,32 @@ namespace PolySpearAI
                     }
                 }
 
-                return minEval == MAX_VALUE ? EvaluatePosition(grid, aiPlayer) : minEval;
+                return minEval == MAX_VALUE ? EvaluatePosition(aiPlayer) : minEval;
             }
         }
 
-        private List<Unit> GetPlayerUnits(PLAYER player, HexGrid grid = null)
+        private List<Unit> GetPlayerUnits(PLAYER player)
         {
-            grid = grid ?? _grid;
-            List<Unit> units = grid.GetUnitsByPlayer(player).ToList();
+            List<Unit> units = _grid.GetUnitsByPlayer(player).ToList();
 
             return units;
         }
 
-        private bool IsGameOver(HexGrid grid)
+        private bool IsGameOver()
         {
-            bool player0HasUnits = grid.GetUnitsByPlayer(PLAYER.ELF).Any();
-            bool player1HasUnits = grid.GetUnitsByPlayer(PLAYER.ORC).Any();
+            bool player0HasUnits = _grid.GetUnitsByPlayer(PLAYER.ELF).Any();
+            bool player1HasUnits = _grid.GetUnitsByPlayer(PLAYER.ORC).Any();
 
             return !player0HasUnits || !player1HasUnits;
         }
 
-        private int EvaluatePosition(HexGrid grid, PLAYER aiPlayer)
+        private int EvaluatePosition(PLAYER aiPlayer)
         {
             int score = 0;
             PLAYER enemyPlayer = Program.GetEnemyPlayer(aiPlayer);
 
-            int aiUnitCount = grid.GetUnitsByPlayer(aiPlayer).Count;
-            int enemyUnitCount = grid.GetUnitsByPlayer(enemyPlayer).Count;
+            int aiUnitCount = _grid.GetUnitsByPlayer(aiPlayer).Count;
+            int enemyUnitCount = _grid.GetUnitsByPlayer(enemyPlayer).Count;
 
             score += (aiUnitCount - enemyUnitCount) * UNIT_VALUE * 2;
 
@@ -186,11 +174,6 @@ namespace PolySpearAI
                 return MIN_VALUE;
 
             return score;
-        }
-
-        private HexGrid SimulateGrid(HexGrid original)
-        {
-            return null;
         }
     }
 }

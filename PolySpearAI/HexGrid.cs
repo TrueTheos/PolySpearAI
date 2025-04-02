@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -7,23 +8,35 @@ using System.Threading.Tasks;
 
 namespace PolySpearAI
 {
-    [Serializable]
-    public record Hex
+    public readonly struct Hex : IEquatable<Hex>
     {
-        public int Q { get; } // Column
-        public int R { get; } // Row
+        public readonly int Q { get; } // Column
+        public readonly int R { get; } // Row
+
+        private readonly int _hashCode;
+
         public Hex(int q, int r)
         {
             Q = q;
             R = r;
+            _hashCode = HashCode.Combine(Q, R);
         }
+
+        public override int GetHashCode() => _hashCode;
+        public bool Equals(Hex other) => Q == other.Q && R == other.R;
+        public override bool Equals([NotNullWhen(true)] object? obj) => obj is Hex hex && Equals(hex);
+        public static bool operator ==(Hex left, Hex right) => left.Equals(right);
+        public static bool operator !=(Hex left, Hex right) => !left.Equals(right);
     }
 
     [Serializable]
-    public record PreMove
+    public sealed class PreMove
     {
-        public Dictionary<Hex, Unit> UnitsPositions;
+        public Dictionary<string, Hex> UnitsPositions;
+        public Dictionary<Hex, string> HexesWithUnits { get; private set; } = new();
         public HashSet<Unit> AllUnits;
+
+        public Dictionary<string, Side> UnitRotations = new();
 
         public PreMove(HexGrid grid)
         {
@@ -31,7 +44,15 @@ namespace PolySpearAI
                 kv => kv.Key,
                 kv => kv.Value with { }
             );
+
+            HexesWithUnits = new Dictionary<Hex, string>(grid.HexesWithUnits);
+
             AllUnits = new HashSet<Unit>(grid.AllUnits.Select(u => u with { }));
+
+            foreach (var unit in AllUnits)
+            {
+                UnitRotations[unit.ID] = unit.Rotation;
+            }
         }
     }
 
@@ -57,10 +78,11 @@ namespace PolySpearAI
              }
         };
 
-        public Dictionary<Hex, Unit> UnitsPositions { get; private set; } = new();
+        public Dictionary<string, Hex> UnitsPositions { get; private set; } = new();
+        public Dictionary<Hex, string> HexesWithUnits { get; private set; } = new();
         public HashSet<Unit> AllUnits { get; private set; } = new();
 
-        private Stack<PreMove> _moveHistory = new();
+        public Stack<PreMove> MoveHistory = new();
 
         public HexGrid(int width, int height)
         {
@@ -78,20 +100,28 @@ namespace PolySpearAI
 
         public Hex GetHex(Unit unit)
         {
-            return GetHex(unit.Q, unit.R);
+            UnitsPositions.TryGetValue(unit.ID, out Hex result);
+            return result;
         }
 
         public Hex GetHex(int q, int r)
         {
-            _hexes.TryGetValue((q, r), out Hex? hex);
+            _hexes.TryGetValue((q, r), out Hex hex);
             return hex;
+        }
+
+        public Unit GetUnitById(string id)
+        {
+            return AllUnits.FirstOrDefault(x => x.ID == id);
         }
 
         public Unit GetUnitAtHex(Hex hex)
         {
             if (hex == null) return null;
-            UnitsPositions.TryGetValue(hex, out Unit? unit);
-            return unit;
+            HexesWithUnits.TryGetValue(hex, out string? unitID);
+            if (unitID == null) return null;
+
+            return AllUnits.FirstOrDefault(x => x.ID == unitID);
         }
 
         public Side DirectionTo(Hex start, Hex neighbor)
@@ -114,6 +144,7 @@ namespace PolySpearAI
 
         public Dictionary<Side, Hex> GetNeighbors(Hex hex)
         {
+            if (hex == null) return new();
             int parity = hex.R & 1;
             Dictionary<Side, Hex> neighbors = new();
 
@@ -170,22 +201,32 @@ namespace PolySpearAI
 
             Side moveDirection = DirectionTo(from, to);
 
+            MoveHistory.Push(new PreMove(this));
             return PerformMovement(unit, from, to, moveDirection);
         }
 
         public bool UndoMove()
         {
-            if (_moveHistory.Count == 0) return false;
-            PreMove move = _moveHistory.Pop();
-            UnitsPositions = new Dictionary<Hex, Unit>(move.UnitsPositions);
-            AllUnits = new HashSet<Unit>(move.AllUnits);
-            _moveHistory = new();
+            if (MoveHistory.Count == 0) return false;
+            PreMove move = MoveHistory.Pop();
+            ApplyMove(move);
             return true;
+        }
+
+        public void ApplyMove(PreMove move)
+        {
+            UnitsPositions = new Dictionary<string, Hex>(move.UnitsPositions);
+            HexesWithUnits = new Dictionary<Hex, string>(move.HexesWithUnits);
+            AllUnits = new HashSet<Unit>(move.AllUnits);
+
+            foreach (var unit in AllUnits)
+            {
+                unit.Rotation = move.UnitRotations[unit.ID];
+            }
         }
 
         private bool PerformMovement(Unit unit, Hex currentPosition, Hex destination, Side moveDirection)
         {
-            _moveHistory.Push(new PreMove(this));
             unit.Rotation = moveDirection;
 
             if (IsVulnerableToSpear(unit, currentPosition))
@@ -195,8 +236,9 @@ namespace PolySpearAI
             }
 
             // Check if destination has an enemy unit that can be attacked
-            if (UnitsPositions.TryGetValue(destination, out Unit targetUnit) && targetUnit.Player != unit.Player)
+            if (HexesWithUnits.TryGetValue(destination, out string targetUnitId) && GetUnitById(targetUnitId).Player != unit.Player)
             {
+                Unit targetUnit = GetUnitById(targetUnitId);
                 // Can only move to an occupied hex if the weapon in the move direction would kill the target
                 if (!CanKillUnit(unit, targetUnit, moveDirection))
                     return false;
@@ -204,7 +246,7 @@ namespace PolySpearAI
                 // Kill the target unit
                 KillUnit(targetUnit);
             }
-            else if (UnitsPositions.ContainsKey(destination))
+            else if (HexesWithUnits.ContainsKey(destination))
             {
                 // Can't move to a hex occupied by a friendly unit
                 return false;
@@ -212,11 +254,11 @@ namespace PolySpearAI
 
             ActivateWeaponEffectsBeforeMovement(unit, currentPosition, destination, moveDirection);
 
-            UnitsPositions.Remove(currentPosition);
+            UnitsPositions.Remove(unit.ID);
+            HexesWithUnits.Remove(currentPosition);
 
-            UnitsPositions[destination] = unit;
-            UnitsPositions.Remove(currentPosition);
-            unit.SetPosition(destination);
+            UnitsPositions[unit.ID] = destination;
+            HexesWithUnits[destination] = unit.ID;
 
             if (IsVulnerableToSpear(unit, destination))
             {
@@ -258,10 +300,11 @@ namespace PolySpearAI
                     try
                     {
                         Hex targetPos = GetNeighbor(position,side);
-                        if (UnitsPositions.TryGetValue(targetPos, out Unit targetUnit) &&
-                            targetUnit.Player != unit.Player)
+                        if (HexesWithUnits.TryGetValue(targetPos, out string targetUnitId) &&
+                            GetUnitById(targetUnitId).Player != unit.Player)
                         {
                             // Check if target has a shield
+                            Unit targetUnit = GetUnitById(targetUnitId);
                             Side defendDirection = (Side)(((int)side + 3) % 6);
                             Weapon defendWeapon = targetUnit.GetItemOnSide((int)defendDirection);
 
@@ -289,10 +332,10 @@ namespace PolySpearAI
                 try
                 {
                     Hex neighborPos = GetNeighbor(position,side);
-                    if (UnitsPositions.TryGetValue(neighborPos, out Unit neighborUnit) &&
-                        neighborUnit.Player != unit.Player)
+                    if (HexesWithUnits.TryGetValue(neighborPos, out string neighborUnitId) &&
+                        GetUnitById(neighborUnitId).Player != unit.Player)
                     {
-                        unitsToKill.Add(neighborUnit);
+                        unitsToKill.Add(GetUnitById(neighborUnitId));
                     }
                 }
                 catch
@@ -322,8 +365,9 @@ namespace PolySpearAI
                     currentPos = GetNeighbor(currentPos,direction);
 
                     // Check if there's a unit there
-                    if (UnitsPositions.TryGetValue(currentPos, out Unit targetUnit))
+                    if (HexesWithUnits.TryGetValue(currentPos, out string targetUnitId))
                     {
+                        Unit targetUnit = GetUnitById(targetUnitId);
                         // If it's an enemy unit, check for shield and kill if not shielded
                         if (targetUnit.Player != unit.Player)
                         {
@@ -356,26 +400,28 @@ namespace PolySpearAI
         private void PushUnit(Unit pusher, Hex pushPosition, Side pushDirection)
         {
             // Check if there's a unit at the push position
-            if (UnitsPositions.TryGetValue(pushPosition, out Unit targetUnit) &&
-                targetUnit.Player != pusher.Player)
+            if (HexesWithUnits.TryGetValue(pushPosition, out string targetUnitId) &&
+                GetUnitById(targetUnitId).Player != pusher.Player)
             {
                 // Calculate the position the target will be pushed to
+                Unit targetUnit = GetUnitById(targetUnitId);
                 Hex pushDestination;
                 try
                 {
                     pushDestination = GetNeighbor(pushPosition, pushDirection);
 
                     // If the push destination is occupied or off the board, the target unit dies
-                    if (UnitsPositions.ContainsKey(pushDestination))
+                    if (HexesWithUnits.ContainsKey(pushDestination))
                     {
                         KillUnit(targetUnit);
                     }
                     else
                     {
                         // Move the target to the push destination
-                        UnitsPositions.Remove(pushPosition);
-                        UnitsPositions[pushDestination] = targetUnit;
-                        targetUnit.SetPosition(pushDestination);
+                        UnitsPositions.Remove(targetUnitId);
+                        HexesWithUnits.Remove(pushPosition);
+                        UnitsPositions[targetUnitId] = pushDestination;
+                        HexesWithUnits[pushDestination] = targetUnitId;
 
                         // Check if the pushed unit is now vulnerable to a spear
                         if (IsVulnerableToSpear(targetUnit, pushDestination))
@@ -425,9 +471,10 @@ namespace PolySpearAI
                 try
                 {
                     Hex neighborPos = GetNeighbor(position, side);
-                    if (UnitsPositions.TryGetValue(neighborPos, out Unit neighborUnit) &&
-                        neighborUnit.Player != unit.Player)
+                    if (HexesWithUnits.TryGetValue(neighborPos, out string neighborUnitId) &&
+                        GetUnitById(neighborUnitId).Player != unit.Player)
                     {
+                        Unit neighborUnit = GetUnitById(neighborUnitId);
                         // The side pointing at our unit
                         Side pointingDirection = (Side)(((int)side + 3) % 6);
 
@@ -454,7 +501,8 @@ namespace PolySpearAI
 
         private void KillUnit(Unit unit)
         {
-            UnitsPositions.Remove(GetHex(unit));
+            HexesWithUnits.Remove(UnitsPositions[unit.ID]);
+            UnitsPositions.Remove(unit.ID);
             AllUnits.Remove(unit);
         }
 
@@ -478,10 +526,9 @@ namespace PolySpearAI
                 return;
             }
             AllUnits.Add(unit);
-            UnitsPositions[hex] = unit;
+            UnitsPositions[unit.ID] = hex;
+            HexesWithUnits[hex] = unit.ID;
             unit.Rotation = facing;
-            UnitsPositions[hex] = unit;
-            unit.SetPosition(hex);
         }
 
         public void PrintGrid()

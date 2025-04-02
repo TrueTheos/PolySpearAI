@@ -1,13 +1,13 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 
 namespace PolySpearAI
 {
-    [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum Side
     {
         UP_RIGHT = 0,
@@ -18,7 +18,7 @@ namespace PolySpearAI
         UP_LEFT = 5
     }
 
-    [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum Weapon
     { 
         EMPTY = 0,
@@ -36,6 +36,5 @@ namespace PolySpearAI
         SWORD = 12 //w
     }
 
-    [JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
     public enum PLAYER { ELF, ORC }
 }

@@ -65,7 +65,7 @@ namespace PolySpearAI
                 if (input.ToLower() == "u")
                 {
                     if (grid.UndoMove()) ChangePlayer();
-                    grid.ClearHistory();
+                    grid.MoveHistory = new();
                     continue;
                 }
 

@@ -22,8 +22,8 @@ namespace PolySpearAI
 
         public (Hex From, Hex To) FindBestMove()
         {
-            Hex bestFrom = default;
-            Hex bestTo = default;
+            Hex bestFrom = null;
+            Hex bestTo = null;
             int bestScore = MIN_VALUE;
             int alpha = MIN_VALUE;
             int beta = MAX_VALUE;

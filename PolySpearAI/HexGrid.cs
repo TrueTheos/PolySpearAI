@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -8,46 +7,45 @@ using System.Threading.Tasks;
 
 namespace PolySpearAI
 {
-    public readonly struct Hex : IEquatable<Hex>
+    [Serializable]
+    public class Hex
     {
-        public readonly int Q { get; } // Column
-        public readonly int R { get; } // Row
+        public int Q { get; } // Column
+        public int R { get; } // Row
 
-        private readonly int _hashCode;
+        private int _id;
 
         public Hex(int q, int r)
         {
             Q = q;
             R = r;
-            _hashCode = HashCode.Combine(Q, R);
+            _id = HashCode.Combine(Q, R);
         }
 
-        public override int GetHashCode() => _hashCode;
-        public bool Equals(Hex other) => Q == other.Q && R == other.R;
-        public override bool Equals([NotNullWhen(true)] object? obj) => obj is Hex hex && Equals(hex);
-        public static bool operator ==(Hex left, Hex right) => left.Equals(right);
-        public static bool operator !=(Hex left, Hex right) => !left.Equals(right);
+        public override int GetHashCode()
+        {
+            return _id;
+        }
     }
 
     [Serializable]
     public sealed class PreMove
     {
-        public Dictionary<string, Hex> UnitsPositions;
-        public Dictionary<Hex, string> HexesWithUnits { get; private set; } = new();
-        public HashSet<Unit> AllUnits;
+        public IReadOnlyDictionary<string, Hex> UnitsPositions { get; }
+        public IReadOnlyDictionary<Hex, string> HexesWithUnits { get; }
+        public IReadOnlySet<Unit> AllUnits { get;}
 
-        public Dictionary<string, Side> UnitRotations = new();
+        public Dictionary<string, Side> UnitRotations { get; }
 
         public PreMove(HexGrid grid)
         {
-            UnitsPositions = grid.UnitsPositions.ToDictionary(
-                kv => kv.Key,
-                kv => kv.Value with { }
-            );
+            UnitsPositions = new Dictionary<string, Hex>(grid.UnitsPositions);
 
             HexesWithUnits = new Dictionary<Hex, string>(grid.HexesWithUnits);
 
             AllUnits = new HashSet<Unit>(grid.AllUnits.Select(u => u with { }));
+
+            UnitRotations = new();
 
             foreach (var unit in AllUnits)
             {
@@ -60,7 +58,7 @@ namespace PolySpearAI
     {
         public int Width { get; private set; }
         public int Height { get; private set; }
-        private readonly Dictionary<(int, int), Hex> _hexes = new();
+        private readonly Hex[,] _hexes;
 
         public static readonly int[][][] OddrDirectionDifferences =
         {
@@ -84,30 +82,34 @@ namespace PolySpearAI
 
         public Stack<PreMove> MoveHistory = new();
 
+        private static readonly Side[] _sides = (Side[])Enum.GetValues(typeof(Side));
+
         public HexGrid(int width, int height)
         {
             this.Width = width;
             this.Height = height;
+            _hexes = new Hex[width, height];
 
             for (int r = 0; r < height; r++)
             {
                 for (int q = 0; q < width - (r % 2 == 0 ? 0 : 1); q++)
                 {
-                    _hexes[(q, r)] = new Hex(q, r);
+                    _hexes[q,r] = new Hex(q, r);
                 }
             }
         }
 
         public Hex GetHex(Unit unit)
         {
-            UnitsPositions.TryGetValue(unit.ID, out Hex result);
+            UnitsPositions.TryGetValue(unit.ID, out Hex? result);
             return result;
         }
 
         public Hex GetHex(int q, int r)
         {
-            _hexes.TryGetValue((q, r), out Hex hex);
-            return hex;
+            if (r >= 0 && r < Height && q >= 0 && q < Width)
+                return _hexes[q,r];
+            return null;
         }
 
         public Unit GetUnitById(string id)
@@ -173,9 +175,8 @@ namespace PolySpearAI
 
             int currentRotation = (int)unit.Rotation;
 
-            var directions = Enum.GetValues(typeof(Side));
             var neighbors = GetNeighbors(GetHex(unit));
-            foreach (int dirValue in directions)
+            foreach (int dirValue in _sides)
             {
                 Side side = (Side)dirValue;
                 if (neighbors.TryGetValue(side, out Hex neighborHex))
@@ -293,7 +294,7 @@ namespace PolySpearAI
 
         private void ActivateWeaponEffectsAfterMovement(Unit unit, Hex position)
         {
-            foreach (Side side in Enum.GetValues<Side>())
+            foreach (Side side in _sides)
             {
                 if (unit.GetItemOnSide((int)side) == Weapon.SPEAR)
                 {
@@ -324,10 +325,10 @@ namespace PolySpearAI
 
         private void KillAdjacentEnemies(Unit unit, Hex position)
         {
-            List<Unit> unitsToKill = new List<Unit>();
+            List<Unit> unitsToKill = new List<Unit>();  
 
             // Check all adjacent hexes for enemies
-            foreach (Side side in Enum.GetValues<Side>())
+            foreach (Side side in _sides)
             {
                 try
                 {
@@ -466,8 +467,8 @@ namespace PolySpearAI
         private bool IsVulnerableToSpear(Unit unit, Hex position)
         {
             // Check all adjacent hexes for enemy units with spears pointing at this unit
-            foreach (Side side in Enum.GetValues<Side>())
-            {
+            foreach (Side side in _sides)
+            {   
                 try
                 {
                     Hex neighborPos = GetNeighbor(position, side);

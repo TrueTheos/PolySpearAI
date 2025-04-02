@@ -9,7 +9,7 @@ namespace PolySpearAI
     public class AI
     {
         private readonly HexGrid _grid;
-        private const int MAX_DEPTH = 3;
+        private const int MAX_DEPTH = 10;
         private const int UNIT_VALUE = 100;
 
         private const int MIN_VALUE = int.MinValue + 1;

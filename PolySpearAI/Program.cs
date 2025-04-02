@@ -21,19 +21,87 @@ namespace PolySpearAI
             }
             UnitPreset preset = PresetLoader.LoadPresets(PRESET_FILE_PATH);
 
-            foreach (var unit in preset.Units)
+            List<(Unit Unit, int Q, int R, Side Side)> placedUnits = new List<(Unit, int, int, Side)>();
+            int currentUnitIndex = 0;
+
+            PreMove lastPlace = new PreMove(grid);
+
+            while (currentUnitIndex < preset.Units.Count)
             {
                 Console.WriteLine();
-                Console.Write($"Place {unit.ID} (q r side player): ");
-                string pos = Console.ReadLine();
+                Unit currentUnit = preset.Units[currentUnitIndex];
+                Console.Write($"Place {currentUnit.ID} (q r side player) or 'u' to undo: ");
+                string input = Console.ReadLine();
 
-                int q = int.Parse(pos[0].ToString());
-                int r = int.Parse(pos[1].ToString());
+                // Handle undo
+                if (input.ToLower() == "u")
+                {
+                    if (lastPlace == null) continue;
+                    if (currentUnitIndex > 0 && placedUnits.Count > 0)
+                    {
+                        var lastPlaced = placedUnits[placedUnits.Count - 1];
+                        placedUnits.RemoveAt(placedUnits.Count - 1);
+                        currentUnitIndex--;
 
-                unit.Player = (PLAYER)int.Parse(pos[3].ToString());
-                grid.PlaceUnit(q, r, unit, (Side)int.Parse(pos[2].ToString()));
-                Console.Clear();
-                grid.PrintGrid();
+                        grid.ApplyMove(lastPlace);
+
+                        Console.Clear();
+                        grid.PrintGrid();
+                    }
+
+                    continue;
+                }
+
+                lastPlace = new PreMove(grid);
+
+                try
+                {
+                    if (input.Length < 4)
+                    {
+                        throw new Exception("Input too short");
+                    }
+
+                    int q = int.Parse(input[0].ToString());
+                    int r = int.Parse(input[1].ToString());
+                    int sideValue = int.Parse(input[2].ToString());
+                    int playerValue = int.Parse(input[3].ToString());
+
+                    // Validate the values
+                    if (sideValue < 0 || sideValue > Enum.GetValues(typeof(Side)).Length - 1)
+                    {
+                        throw new Exception($"Invalid side value: {sideValue}");
+                    }
+
+                    if (playerValue != (int)PLAYER.ELF && playerValue != (int)PLAYER.ORC)
+                    {
+                        throw new Exception($"Invalid player value: {playerValue}");
+                    }
+
+                    // Check if the hex is valid
+                    Hex targetHex = grid.GetHex(q, r);
+                    if (targetHex == null)
+                    {
+                        throw new Exception($"Invalid hex coordinates: {q},{r}");
+                    }
+
+                    // Check if the hex is already occupied
+                    if (grid.GetUnitAtHex(targetHex) != null)
+                    {
+                        throw new Exception($"Hex {q},{r} is already occupied");
+                    }
+
+                    currentUnit.Player = (PLAYER)playerValue;
+                    grid.PlaceUnit(q, r, currentUnit, (Side)sideValue);
+                    placedUnits.Add((currentUnit, q, r, (Side)sideValue));
+                    currentUnitIndex++;
+
+                    Console.Clear();
+                    grid.PrintGrid();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Invalid input: {ex.Message}. Please try again.");
+                }
             }
 
             while (true)

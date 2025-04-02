@@ -10,21 +10,29 @@ namespace PolySpearAI
         public const string PRESET_FILE_PATH = "units.json";
         public static PLAYER CurrentPlayer = PLAYER.ELF;
 
+        private static HexGrid _grid;
         static void Main(string[] args)
         {
-            HexGrid grid = new HexGrid(5, 5);
-            grid.PrintGrid();
+            _grid = new HexGrid(5, 5);
+            _grid.PrintGrid();
 
-            if(!File.Exists(PRESET_FILE_PATH))
+            if (!File.Exists(PRESET_FILE_PATH))
             {
                 throw new Exception($"No units.json! at {Path.GetFullPath(PRESET_FILE_PATH)}");
             }
             UnitPreset preset = PresetLoader.LoadPresets(PRESET_FILE_PATH);
 
+            PlaceUnits(preset);
+
+            GameLoop(); 
+        }
+
+        private static void PlaceUnits(UnitPreset preset)
+        {
             List<(Unit Unit, int Q, int R, Side Side)> placedUnits = new List<(Unit, int, int, Side)>();
             int currentUnitIndex = 0;
 
-            PreMove lastPlace = new PreMove(grid);
+            PreMove lastPlace = new PreMove(_grid);
 
             while (currentUnitIndex < preset.Units.Count)
             {
@@ -43,16 +51,16 @@ namespace PolySpearAI
                         placedUnits.RemoveAt(placedUnits.Count - 1);
                         currentUnitIndex--;
 
-                        grid.ApplyMove(lastPlace);
+                        _grid.ApplyMove(lastPlace);
 
                         Console.Clear();
-                        grid.PrintGrid();
+                        _grid.PrintGrid();
                     }
 
                     continue;
                 }
 
-                lastPlace = new PreMove(grid);
+                lastPlace = new PreMove(_grid);
 
                 try
                 {
@@ -66,7 +74,6 @@ namespace PolySpearAI
                     int sideValue = int.Parse(input[2].ToString());
                     int playerValue = int.Parse(input[3].ToString());
 
-                    // Validate the values
                     if (sideValue < 0 || sideValue > Enum.GetValues(typeof(Side)).Length - 1)
                     {
                         throw new Exception($"Invalid side value: {sideValue}");
@@ -77,67 +84,55 @@ namespace PolySpearAI
                         throw new Exception($"Invalid player value: {playerValue}");
                     }
 
-                    // Check if the hex is valid
-                    Hex targetHex = grid.GetHex(q, r);
+                    Hex targetHex = _grid.GetHex(q, r);
                     if (targetHex == null)
                     {
                         throw new Exception($"Invalid hex coordinates: {q},{r}");
                     }
 
-                    // Check if the hex is already occupied
-                    if (grid.GetUnitAtHex(targetHex) != null)
+                    if (_grid.GetUnitAtHex(targetHex) != null)
                     {
                         throw new Exception($"Hex {q},{r} is already occupied");
                     }
 
                     currentUnit.Player = (PLAYER)playerValue;
-                    grid.PlaceUnit(q, r, currentUnit, (Side)sideValue);
+                    _grid.PlaceUnit(q, r, currentUnit, (Side)sideValue);
                     placedUnits.Add((currentUnit, q, r, (Side)sideValue));
                     currentUnitIndex++;
 
                     Console.Clear();
-                    grid.PrintGrid();
+                    _grid.PrintGrid();
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Invalid input: {ex.Message}. Please try again.");
                 }
             }
+        }
 
+        private static void GameLoop()
+        {
             while (true)
             {
                 Console.Clear();
-                grid.PrintGrid();
+                _grid.PrintGrid();
                 Console.WriteLine($"Curent player: {CurrentPlayer}\n");
-                AI ai = new AI(grid);
-                Stopwatch stopwatch = Stopwatch.StartNew();
-                (Hex from, Hex to) = ai.FindBestMove();
-                stopwatch.Stop();
-
-                if (from != null)
-                {
-                    Console.WriteLine($"\nAI Suggestion: Move from ({from.Q},{from.R}) to ({to.Q},{to.R})");
-                    Console.WriteLine($"Time: {stopwatch.ElapsedMilliseconds}ms");
-                }
-                else
-                {
-                    Console.WriteLine("\nAI Suggestion: No valid moves available.");
-                }
-
+                AI ai = new AI(_grid);
+                ai.FindBestMove();
 
                 Console.WriteLine("\nEnter unit coordinates to move (q,r), 'u' to undo, 's' to skip, 'exit':");
                 string input = Console.ReadLine();
                 if (input.ToLower() == "exit")
                     break;
-                if(input.ToLower() == "s")
+                else if (input.ToLower() == "s")
                 {
                     ChangePlayer();
                     continue;
                 }
-                if (input.ToLower() == "u")
+                else if (input.ToLower() == "u")
                 {
-                    if (grid.UndoMove()) ChangePlayer();
-                    grid.MoveHistory = new();
+                    if (_grid.UndoMove()) ChangePlayer();
+                    _grid.MoveHistory = new();
                     continue;
                 }
 
@@ -150,15 +145,15 @@ namespace PolySpearAI
                     continue;
                 }
 
-                Hex selectedHex = grid.GetHex(q, r);
-                Unit selectedUnit = grid.GetUnitAtHex(selectedHex);
+                Hex selectedHex = _grid.GetHex(q, r);
+                Unit selectedUnit = _grid.GetUnitAtHex(selectedHex);
                 if (selectedHex == null || selectedUnit == null || selectedUnit.Player != CurrentPlayer)
                 {
                     Console.WriteLine("No valid unit at that location for the current player.");
                     continue;
                 }
 
-                List<Hex> allowedMoves = grid.AllowedMoves(selectedUnit);
+                List<Hex> allowedMoves = _grid.AllowedMoves(selectedUnit);
                 if (allowedMoves.Count == 0)
                 {
                     Console.WriteLine("No allowed moves for that unit.");
@@ -168,7 +163,7 @@ namespace PolySpearAI
                 var directionMapping = new Dictionary<Side, Hex>();
                 foreach (Side side in Enum.GetValues(typeof(Side)))
                 {
-                    Hex neighbor = grid.GetNeighbor(selectedHex,side);
+                    Hex neighbor = _grid.GetNeighbor(selectedHex, side);
                     if (allowedMoves.Contains(neighbor))
                         directionMapping[side] = neighbor;
                 }
@@ -193,14 +188,13 @@ namespace PolySpearAI
 
                 Hex destination = allowedList[moveIndex].hex;
 
-                // Attempt to move the unit.
-                bool success = grid.MoveUnit(selectedUnit, destination);
+                bool success = _grid.MoveUnit(selectedUnit, destination);
                 if (success) ChangePlayer();
 
-                grid.PrintGrid();
+                _grid.PrintGrid();
             }
         }
-
+        
         private static void ChangePlayer()
         {
             CurrentPlayer = CurrentPlayer == PLAYER.ELF ? PLAYER.ORC : PLAYER.ELF;
@@ -209,50 +203,6 @@ namespace PolySpearAI
         public static PLAYER GetEnemyPlayer(PLAYER curr)
         {
             return curr == PLAYER.ELF ? PLAYER.ORC : PLAYER.ELF;
-        }
-    }
-
-    public static class PresetLoader
-    {
-        public static UnitPreset LoadPresets(string filePath)
-        {
-            string json = File.ReadAllText(filePath);
-            var presets = JsonSerializer.Deserialize<UnitPreset>(json);
-            return presets;
-        }
-
-        public static void SaveUnit(Unit unit)
-        {
-            UnitPreset preset;
-
-            if (File.Exists(Program.PRESET_FILE_PATH))
-            {
-                string json = File.ReadAllText(Program.PRESET_FILE_PATH);
-                preset = JsonSerializer.Deserialize<UnitPreset>(json);
-                if (preset == null || preset.Units == null)
-                {
-                    preset = new UnitPreset();
-                }
-            }
-            else
-            {
-                preset = new UnitPreset();
-            }
-
-            preset.Units.Add(unit);
-
-            string outputJson = JsonSerializer.Serialize(preset);
-            File.WriteAllText(Program.PRESET_FILE_PATH, outputJson);
-        }
-    }
-
-    public class UnitPreset
-    {
-        public List<Unit> Units { get; set; }
-
-        public UnitPreset()
-        {
-            Units = new();
         }
     }
 }

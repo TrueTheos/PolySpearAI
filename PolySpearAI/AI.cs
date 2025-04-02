@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -22,6 +23,8 @@ namespace PolySpearAI
 
         public (Hex From, Hex To) FindBestMove()
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             Hex bestFrom = null;
             Hex bestTo = null;
             int bestScore = MIN_VALUE;
@@ -39,7 +42,7 @@ namespace PolySpearAI
 
             foreach (var unit in playerUnits)
             {
-                Hex unitCurrentPos = _grid.GetHex(unit);
+                var unitCurrentPos = _grid.GetHex(unit);
                 var moves = _grid.AllowedMoves(unit);
 
                 foreach (var move in moves)
@@ -61,6 +64,18 @@ namespace PolySpearAI
                     }
                     alpha = Math.Max(alpha, bestScore);
                 }
+            }
+
+            stopwatch.Stop();
+
+            if (bestFrom != null)
+            {
+                Console.WriteLine($"\nAI Suggestion: Move from ({bestFrom.Q},{bestFrom.R}) to ({bestTo.Q},{bestTo.R})");
+                Console.WriteLine($"Time: {stopwatch.ElapsedMilliseconds}ms");
+            }
+            else
+            {
+                Console.WriteLine("\nAI Suggestion: No valid moves available.");
             }
 
             return (bestFrom, bestTo);
@@ -102,19 +117,15 @@ namespace PolySpearAI
 
                         _grid.ApplyMove(previousMove);
 
-                        if(score > bestValue)
-                        {
-                            bestValue = alpha;
-                            if(score > alpha)
-                            {
-                                alpha = score;
-                            }
-                        }
-                        if(score >= beta)
-                        {
-                            return beta;
-                        }
+                        bestValue = Math.Max(bestValue, score);
+                        alpha = Math.Max(alpha, bestValue);
+
+                        if (beta <= alpha)
+                            break;
                     }
+
+                    if (beta <= alpha)
+                        break;
                 }
 
                 return bestValue;
@@ -138,19 +149,15 @@ namespace PolySpearAI
 
                         _grid.ApplyMove(previousMove);
 
-                        if(score < bestValue)
-                        {
-                            bestValue = score;
-                            if(score < beta)
-                            {
-                                beta = score;
-                            }
-                        }
-                        if(score <= alpha)
-                        {
-                            return score;
-                        }
+                        bestValue = Math.Min(bestValue, score);
+                        beta = Math.Min(beta, bestValue);
+
+                        if (beta <= alpha)
+                            break;
                     }
+
+                    if (beta <= alpha)
+                        break;
                 }
 
                 return bestValue;

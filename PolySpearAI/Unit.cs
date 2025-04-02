@@ -16,14 +16,6 @@ namespace PolySpearAI
         {
 
         }
-  
-        public Unit(Side rotation, string id, List<Weapon> items)
-        {
-            ID = id;
-            _id = HashCode.Combine(id);
-            Items = items;
-            Rotation = rotation;
-        } 
 
         public Weapon GetItemOnSide(int side)
         {

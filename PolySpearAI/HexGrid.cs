@@ -4,76 +4,28 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static PolySpearAI.Unit;
 
 namespace PolySpearAI
 {
-    [Serializable]
-    public class Hex
-    {
-        public int Q { get; } // Column
-        public int R { get; } // Row
-
-        private int _id;
-
-        public Hex(int q, int r)
-        {
-            Q = q;
-            R = r;
-            _id = HashCode.Combine(Q, R);
-        }
-
-        public override int GetHashCode()
-        {
-            return _id;
-        }
-    }
-
-    [Serializable]
-    public sealed class PreMove
-    {
-        public IReadOnlyDictionary<string, Hex> UnitsPositions { get; }
-        public IReadOnlyDictionary<Hex, string> HexesWithUnits { get; }
-        public IReadOnlySet<Unit> AllUnits { get;}
-
-        public Dictionary<string, Side> UnitRotations { get; }
-
-        public PreMove(HexGrid grid)
-        {
-            UnitsPositions = new Dictionary<string, Hex>(grid.UnitsPositions);
-
-            HexesWithUnits = new Dictionary<Hex, string>(grid.HexesWithUnits);
-
-            AllUnits = new HashSet<Unit>(grid.AllUnits.Select(u => u with { }));
-
-            UnitRotations = new();
-
-            foreach (var unit in AllUnits)
-            {
-                UnitRotations[unit.ID] = unit.Rotation;
-            }
-        }
-    }
-
     public class HexGrid
     {
-        public int Width { get; private set; }
-        public int Height { get; private set; }
+        public int Width { get; }
+        public int Height { get; }
         private readonly Hex[,] _hexes;
 
         public static readonly int[][][] OddrDirectionDifferences =
         {
              // Even rows
-             new int[][]
-             {
-                 new[] { 0, -1 }, new[] { 1, 0 }, new[] { 0, 1 },
-                 new[] { -1, 1 }, new[] { -1, 0 }, new[] { -1, -1 }
-             },
+             [
+                 [0, -1], [1, 0], [0, 1],
+                 [-1, 1], [-1, 0], [-1, -1]
+             ],
              // Odd rows
-             new int[][]
-             {
-                 new[] { 1, -1 }, new[] { 1, 0 }, new[] { 1, 1 },
-                 new[] { 0, 1 }, new[] { -1, 0 }, new[] { 0, -1 }
-             }
+             [
+                 [1, -1], [1, 0], [1, 1],
+                 [0, 1], [-1, 0], [0, -1]
+             ]
         };
 
         public Dictionary<string, Hex> UnitsPositions { get; private set; } = new();
@@ -82,12 +34,21 @@ namespace PolySpearAI
 
         public Stack<PreMove> MoveHistory = new();
 
-        private static readonly Side[] _sides = (Side[])Enum.GetValues(typeof(Side));
+        public enum SIDE
+        {
+            UP_RIGHT = 0,
+            RIGHT = 1,
+            DOWN_RIGHT = 2,
+            DOWN_LEFT = 3,
+            LEFT = 4,
+            UP_LEFT = 5
+        }
+        private static readonly SIDE[] _sides = (SIDE[])Enum.GetValues(typeof(SIDE));
 
         public HexGrid(int width, int height)
         {
-            this.Width = width;
-            this.Height = height;
+            Width = width;
+            Height = height;
             _hexes = new Hex[width, height];
 
             for (int r = 0; r < height; r++)
@@ -126,7 +87,7 @@ namespace PolySpearAI
             return AllUnits.FirstOrDefault(x => x.ID == unitID);
         }
 
-        public Side DirectionTo(Hex start, Hex neighbor)
+        public SIDE DirectionTo(Hex start, Hex neighbor)
         {
             int parity = start.R & 1;
             int dq = neighbor.Q - start.Q;
@@ -137,30 +98,30 @@ namespace PolySpearAI
                 var diff = HexGrid.OddrDirectionDifferences[parity][i];
                 if (dq == diff[0] && dr == diff[1])
                 {
-                    return (Side)i;
+                    return (SIDE)i;
                 }
             }
 
             throw new ArgumentException("Hexes are not adjacent");
         }
 
-        public Dictionary<Side, Hex> GetNeighbors(Hex hex)
+        public Dictionary<SIDE, Hex> GetNeighbors(Hex hex)
         {
             if (hex == null) return new();
             int parity = hex.R & 1;
-            Dictionary<Side, Hex> neighbors = new();
+            Dictionary<SIDE, Hex> neighbors = new();
 
             for (int i = 0; i < OddrDirectionDifferences[parity].Length; i++)
             {
                 var diff = OddrDirectionDifferences[parity][i];
                 Hex neighbor = GetHex(hex.Q + diff[0], hex.R + diff[1]);
-                if (neighbor != null) neighbors[(Side)i] = neighbor;
+                if (neighbor != null) neighbors[(SIDE)i] = neighbor;
             }
 
             return neighbors;
         }
 
-        public Hex GetNeighbor(Hex hex, Side side)
+        public Hex GetNeighbor(Hex hex, SIDE side)
         {
             GetNeighbors(hex).TryGetValue(side, out Hex result);
             return result;
@@ -178,7 +139,7 @@ namespace PolySpearAI
             var neighbors = GetNeighbors(GetHex(unit));
             foreach (int dirValue in _sides)
             {
-                Side side = (Side)dirValue;
+                SIDE side = (SIDE)dirValue;
                 if (neighbors.TryGetValue(side, out Hex neighborHex))
                 {
                     Unit neighborUnit = GetUnitAtHex(neighborHex);
@@ -200,7 +161,7 @@ namespace PolySpearAI
 
             Hex from = GetHex(unit);
 
-            Side moveDirection = DirectionTo(from, to);
+            SIDE moveDirection = DirectionTo(from, to);
 
             MoveHistory.Push(new PreMove(this));
             return PerformMovement(unit, from, to, moveDirection);
@@ -226,7 +187,7 @@ namespace PolySpearAI
             }
         }
 
-        private bool PerformMovement(Unit unit, Hex currentPosition, Hex destination, Side moveDirection)
+        private bool PerformMovement(Unit unit, Hex currentPosition, Hex destination, SIDE moveDirection)
         {
             unit.Rotation = moveDirection;
 
@@ -272,21 +233,21 @@ namespace PolySpearAI
             return true;
         }
 
-        private void ActivateWeaponEffectsBeforeMovement(Unit unit, Hex currentPosition, Hex destination, Side moveDirection)
+        private void ActivateWeaponEffectsBeforeMovement(Unit unit, Hex currentPosition, Hex destination, SIDE moveDirection)
         {
-            Weapon weaponInMoveDirection = unit.GetItemOnSide((int)moveDirection);
+            WEAPON weaponInMoveDirection = unit.GetItemOnSide((int)moveDirection);
 
-            if (weaponInMoveDirection == Weapon.AXE || weaponInMoveDirection == Weapon.STRONG_AXE)
+            if (weaponInMoveDirection == WEAPON.AXE || weaponInMoveDirection == WEAPON.STRONG_AXE)
             {
                 KillAdjacentEnemies(unit, destination);
             }
 
-            if (weaponInMoveDirection == Weapon.BOW)
+            if (weaponInMoveDirection == WEAPON.BOW)
             {
                 FireBow(unit, currentPosition, moveDirection);
             }
 
-            if (weaponInMoveDirection == Weapon.PUSH)
+            if (weaponInMoveDirection == WEAPON.PUSH)
             {
                 PushUnit(unit, destination, moveDirection);
             }
@@ -294,9 +255,9 @@ namespace PolySpearAI
 
         private void ActivateWeaponEffectsAfterMovement(Unit unit, Hex position)
         {
-            foreach (Side side in _sides)
+            foreach (SIDE side in _sides)
             {
-                if (unit.GetItemOnSide((int)side) == Weapon.SPEAR)
+                if (unit.GetItemOnSide((int)side) == WEAPON.SPEAR)
                 {
                     try
                     {
@@ -306,10 +267,10 @@ namespace PolySpearAI
                         {
                             // Check if target has a shield
                             Unit targetUnit = GetUnitById(targetUnitId);
-                            Side defendDirection = (Side)(((int)side + 3) % 6);
-                            Weapon defendWeapon = targetUnit.GetItemOnSide((int)defendDirection);
+                            SIDE defendDirection = (SIDE)(((int)side + 3) % 6);
+                            WEAPON defendWeapon = targetUnit.GetItemOnSide((int)defendDirection);
 
-                            if (defendWeapon != Weapon.SHIELD && defendWeapon != Weapon.STRONG_SHIELD)
+                            if (defendWeapon != WEAPON.SHIELD && defendWeapon != WEAPON.STRONG_SHIELD)
                             {
                                 KillUnit(targetUnit);
                             }
@@ -328,7 +289,7 @@ namespace PolySpearAI
             List<Unit> unitsToKill = new List<Unit>();  
 
             // Check all adjacent hexes for enemies
-            foreach (Side side in _sides)
+            foreach (SIDE side in _sides)
             {
                 try
                 {
@@ -352,7 +313,7 @@ namespace PolySpearAI
             }
         }
 
-        private void FireBow(Unit unit, Hex position, Side direction)
+        private void FireBow(Unit unit, Hex position, SIDE direction)
         {
             // Start at the unit's position
             Hex currentPos = position;
@@ -372,10 +333,10 @@ namespace PolySpearAI
                         // If it's an enemy unit, check for shield and kill if not shielded
                         if (targetUnit.Player != unit.Player)
                         {
-                            Side defendDirection = (Side)(((int)direction + 3) % 6);
-                            Weapon defendWeapon = targetUnit.GetItemOnSide((int)defendDirection);
+                            SIDE defendDirection = (SIDE)(((int)direction + 3) % 6);
+                            WEAPON defendWeapon = targetUnit.GetItemOnSide((int)defendDirection);
 
-                            if (defendWeapon != Weapon.SHIELD && defendWeapon != Weapon.STRONG_SHIELD)
+                            if (defendWeapon != WEAPON.SHIELD && defendWeapon != WEAPON.STRONG_SHIELD)
                             {
                                 KillUnit(targetUnit);
                             }
@@ -398,7 +359,7 @@ namespace PolySpearAI
             }
         }
 
-        private void PushUnit(Unit pusher, Hex pushPosition, Side pushDirection)
+        private void PushUnit(Unit pusher, Hex pushPosition, SIDE pushDirection)
         {
             // Check if there's a unit at the push position
             if (HexesWithUnits.TryGetValue(pushPosition, out string targetUnitId) &&
@@ -439,26 +400,26 @@ namespace PolySpearAI
             }
         }
 
-        private bool CanKillUnit(Unit attacker, Unit target, Side attackDirection)
+        private bool CanKillUnit(Unit attacker, Unit target, SIDE attackDirection)
         {
-            Weapon attackWeapon = attacker.GetItemOnSide((int)attackDirection);
+            WEAPON attackWeapon = attacker.GetItemOnSide((int)attackDirection);
 
             // The opposite direction from the attack direction
-            Side defendDirection = (Side)(((int)attackDirection + 3) % 6);
+            SIDE defendDirection = (SIDE)(((int)attackDirection + 3) % 6);
 
             // Get the weapon used for defense
-            Weapon defendWeapon = target.GetItemOnSide((int)defendDirection);
+            WEAPON defendWeapon = target.GetItemOnSide((int)defendDirection);
 
             // If defender has a shield in the right direction, they're protected
-            if (defendWeapon == Weapon.SHIELD || defendWeapon == Weapon.STRONG_SHIELD)
+            if (defendWeapon == WEAPON.SHIELD || defendWeapon == WEAPON.STRONG_SHIELD)
                 return false;
 
             // AXE/STRONG_AXE can kill if not blocked by shield
-            if (attackWeapon == Weapon.AXE || attackWeapon == Weapon.STRONG_AXE)
+            if (attackWeapon == WEAPON.AXE || attackWeapon == WEAPON.STRONG_AXE)
                 return true;
 
             // PUSH can always move to occupied hex (it will push the enemy)
-            if (attackWeapon == Weapon.PUSH) //todo
+            if (attackWeapon == WEAPON.PUSH) //todo
                 return true;
 
             return false;
@@ -467,7 +428,7 @@ namespace PolySpearAI
         private bool IsVulnerableToSpear(Unit unit, Hex position)
         {
             // Check all adjacent hexes for enemy units with spears pointing at this unit
-            foreach (Side side in _sides)
+            foreach (SIDE side in _sides)
             {   
                 try
                 {
@@ -477,17 +438,17 @@ namespace PolySpearAI
                     {
                         Unit neighborUnit = GetUnitById(neighborUnitId);
                         // The side pointing at our unit
-                        Side pointingDirection = (Side)(((int)side + 3) % 6);
+                        SIDE pointingDirection = (SIDE)(((int)side + 3) % 6);
 
                         // Check if neighbor has a spear pointing at our unit
-                        Weapon neighborWeapon = neighborUnit.GetItemOnSide((int)pointingDirection);
-                        if (neighborWeapon == Weapon.SPEAR)
+                        WEAPON neighborWeapon = neighborUnit.GetItemOnSide((int)pointingDirection);
+                        if (neighborWeapon == WEAPON.SPEAR)
                         {
                             // Check if our unit has a shield in that direction
-                            Side defendDirection = side;
-                            Weapon defendWeapon = unit.GetItemOnSide((int)defendDirection);
+                            SIDE defendDirection = side;
+                            WEAPON defendWeapon = unit.GetItemOnSide((int)defendDirection);
 
-                            if (defendWeapon != Weapon.SHIELD && defendWeapon != Weapon.STRONG_SHIELD)
+                            if (defendWeapon != WEAPON.SHIELD && defendWeapon != WEAPON.STRONG_SHIELD)
                                 return true; // Unit is vulnerable to spear
                         }
                     }
@@ -512,7 +473,7 @@ namespace PolySpearAI
             return AllUnits.Where(x => x.Player == player).ToHashSet();
         }
 
-        public void PlaceUnit(int q, int r, Unit unit, Side facing)
+        public void PlaceUnit(int q, int r, Unit unit, SIDE facing)
         {
             Hex hex = GetHex(q, r);
             if (hex == null)
@@ -534,6 +495,8 @@ namespace PolySpearAI
 
         public void PrintGrid()
         {
+            // IGNORE THIS MESS, QUICK SOLUTION
+
             for (int r = 0; r < Height; r++)
             {
                 if (r % 2 == 1) Console.Write("   ");
@@ -555,13 +518,13 @@ namespace PolySpearAI
                     {
                         switch (unit.Rotation)
                         {
-                            case Side.UP_RIGHT:
+                            case SIDE.UP_RIGHT:
                                 Console.ForegroundColor = originalColor;
                                 Console.Write($@" /{q}");
                                 Console.ForegroundColor = playerColor;
                                 Console.Write(@"\  ");
                                 break;
-                            case Side.UP_LEFT:
+                            case SIDE.UP_LEFT:
                                 Console.ForegroundColor = playerColor;
                                 Console.Write($@" /{q}");
                                 Console.ForegroundColor = originalColor;
@@ -597,13 +560,13 @@ namespace PolySpearAI
                     {
                         switch (unit.Rotation)
                         {
-                            case Side.LEFT:
+                            case SIDE.LEFT:
                                 Console.ForegroundColor = playerColor;
                                 Console.Write(@$"|");
                                 Console.ForegroundColor = originalColor;
                                 Console.Write(@$" {unitId}| ");
                                 break;
-                            case Side.RIGHT:
+                            case SIDE.RIGHT:
                                 Console.ForegroundColor = originalColor;
                                 Console.Write($@"| {unitId}");
                                 Console.ForegroundColor = playerColor;
@@ -637,7 +600,7 @@ namespace PolySpearAI
                     {
                         switch (unit.Rotation)
                         {
-                            case Side.DOWN_RIGHT:
+                            case SIDE.DOWN_RIGHT:
                                 Console.ForegroundColor = originalColor;
                                 Console.Write(@" \");
                                 Console.ForegroundColor = playerColor;
@@ -645,7 +608,7 @@ namespace PolySpearAI
                                 Console.ForegroundColor = originalColor;
                                 Console.Write(@"  ");
                                 break;
-                            case Side.DOWN_LEFT:
+                            case SIDE.DOWN_LEFT:
                                 Console.ForegroundColor = playerColor;
                                 Console.Write(@" \");
                                 Console.ForegroundColor = originalColor;

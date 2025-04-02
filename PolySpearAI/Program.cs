@@ -2,6 +2,8 @@
 using System;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
+using static PolySpearAI.Unit;
+using static PolySpearAI.HexGrid;
 
 namespace PolySpearAI
 {
@@ -29,7 +31,7 @@ namespace PolySpearAI
 
         private static void PlaceUnits(UnitPreset preset)
         {
-            List<(Unit Unit, int Q, int R, Side Side)> placedUnits = new List<(Unit, int, int, Side)>();
+            List<(Unit Unit, int Q, int R, SIDE Side)> placedUnits = new List<(Unit, int, int, SIDE)>();
             int currentUnitIndex = 0;
 
             PreMove lastPlace = new PreMove(_grid);
@@ -74,7 +76,7 @@ namespace PolySpearAI
                     int sideValue = int.Parse(input[2].ToString());
                     int playerValue = int.Parse(input[3].ToString());
 
-                    if (sideValue < 0 || sideValue > Enum.GetValues(typeof(Side)).Length - 1)
+                    if (sideValue < 0 || sideValue > Enum.GetValues(typeof(SIDE)).Length - 1)
                     {
                         throw new Exception($"Invalid side value: {sideValue}");
                     }
@@ -96,8 +98,8 @@ namespace PolySpearAI
                     }
 
                     currentUnit.Player = (PLAYER)playerValue;
-                    _grid.PlaceUnit(q, r, currentUnit, (Side)sideValue);
-                    placedUnits.Add((currentUnit, q, r, (Side)sideValue));
+                    _grid.PlaceUnit(q, r, currentUnit, (SIDE)sideValue);
+                    placedUnits.Add((currentUnit, q, r, (SIDE)sideValue));
                     currentUnitIndex++;
 
                     Console.Clear();
@@ -160,8 +162,8 @@ namespace PolySpearAI
                     continue;
                 }
 
-                var directionMapping = new Dictionary<Side, Hex>();
-                foreach (Side side in Enum.GetValues(typeof(Side)))
+                var directionMapping = new Dictionary<SIDE, Hex>();
+                foreach (SIDE side in Enum.GetValues(typeof(SIDE)))
                 {
                     Hex neighbor = _grid.GetNeighbor(selectedHex, side);
                     if (allowedMoves.Contains(neighbor))
@@ -170,7 +172,7 @@ namespace PolySpearAI
 
                 Console.WriteLine("\nAllowed Moves:");
                 int index = 0;
-                var allowedList = new List<(Side direction, Hex hex)>();
+                var allowedList = new List<(SIDE direction, Hex hex)>();
                 foreach (var kvp in directionMapping)
                 {
                     allowedList.Add((kvp.Key, kvp.Value));

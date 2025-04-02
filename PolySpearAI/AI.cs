@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static PolySpearAI.Unit;
 
 namespace PolySpearAI
 {
@@ -30,16 +31,16 @@ namespace PolySpearAI
             int bestScore = MIN_VALUE;
             PLAYER originalPlayer = Program.CurrentPlayer;
 
-            var playerUnits = GetPlayerUnits(originalPlayer);
+            List<Unit> playerUnits = GetPlayerUnits(originalPlayer);
 
             foreach (var unit in playerUnits)
             {
-                var currentPos = _grid.GetHex(unit);
-                var moves = _grid.AllowedMoves(unit);
+                Hex currentPos = _grid.GetHex(unit);
+                List<Hex> moves = _grid.AllowedMoves(unit);
 
                 foreach (var move in moves)
                 {
-                    var previousMove = new PreMove(_grid);
+                    PreMove previousMove = new PreMove(_grid);
 
                     Hex simulatedTo = _grid.GetHex(move.Q, move.R);
                     _grid.MoveUnit(unit, simulatedTo);
@@ -88,7 +89,7 @@ namespace PolySpearAI
                 {
                     foreach (var move in _grid.AllowedMoves(unit))
                     {
-                        var previousMove = new PreMove(_grid);
+                        PreMove previousMove = new PreMove(_grid);
                         Hex simulatedTo = _grid.GetHex(move.Q, move.R);
                         _grid.MoveUnit(unit, simulatedTo);
 
@@ -114,7 +115,7 @@ namespace PolySpearAI
                 {
                     foreach (var move in _grid.AllowedMoves(unit))
                     {
-                        var previousMove = new PreMove(_grid);
+                        PreMove previousMove = new PreMove(_grid);
                         Hex simulatedTo = _grid.GetHex(move.Q, move.R);
                         _grid.MoveUnit(unit, simulatedTo);
 
@@ -137,9 +138,7 @@ namespace PolySpearAI
 
         private List<Unit> GetPlayerUnits(PLAYER player)
         {
-            List<Unit> units = _grid.GetUnitsByPlayer(player).ToList();
-
-            return units;
+            return _grid.GetUnitsByPlayer(player).ToList();
         }
 
         private bool IsGameOver()

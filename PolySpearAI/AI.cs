@@ -49,7 +49,7 @@ namespace PolySpearAI
                     var previousMove = new PreMove(_grid);
                     _grid.MoveUnit(unit, simulatedTo);
 
-                    int score = Minimax(MAX_DEPTH - 1, alpha, beta, false, aiPlayer);
+                    int score = Minimax(MAX_DEPTH - 1, alpha, beta, true, aiPlayer);
 
                     _grid.ApplyMove(previousMove);
 
@@ -85,7 +85,7 @@ namespace PolySpearAI
 
             if (maximizingPlayer)
             {
-                int maxEval = MIN_VALUE;
+                int bestValue = MIN_VALUE;
                 var playerUnits = GetPlayerUnits(currentPlayer);
 
                 foreach (var unit in playerUnits)
@@ -98,23 +98,30 @@ namespace PolySpearAI
 
                         var previousMove = new PreMove(_grid);
                         _grid.MoveUnit(unit, simulatedTo);
-                        int eval = Minimax(depth - 1, alpha, beta, false, aiPlayer);
+                        int score = Minimax(depth - 1, alpha, beta, false, aiPlayer);
 
                         _grid.ApplyMove(previousMove);
 
-                        maxEval = Math.Max(maxEval, eval);
-                        alpha = Math.Max(alpha, eval);
-
-                        if (beta <= alpha)
-                            break; // Alpha-beta pruning
+                        if(score > bestValue)
+                        {
+                            bestValue = alpha;
+                            if(score > alpha)
+                            {
+                                alpha = score;
+                            }
+                        }
+                        if(score >= beta)
+                        {
+                            return beta;
+                        }
                     }
                 }
 
-                return maxEval == MIN_VALUE ? EvaluatePosition(aiPlayer) : maxEval;
+                return bestValue;
             }
             else
             {
-                int minEval = MAX_VALUE;
+                int bestValue = MAX_VALUE;
                 var playerUnits = GetPlayerUnits(currentPlayer);
 
                 foreach (var unit in playerUnits)
@@ -127,19 +134,26 @@ namespace PolySpearAI
 
                         var previousMove = new PreMove(_grid);
                         _grid.MoveUnit(unit, simulatedTo);
-                        int eval = Minimax( depth - 1, alpha, beta, true, aiPlayer);
+                        int score = Minimax( depth - 1, alpha, beta, true, aiPlayer);
 
                         _grid.ApplyMove(previousMove);
 
-                        minEval = Math.Min(minEval, eval);
-                        beta = Math.Min(beta, eval);
-
-                        if (beta <= alpha)
-                            break; // Alpha-beta pruning
+                        if(score < bestValue)
+                        {
+                            bestValue = score;
+                            if(score < beta)
+                            {
+                                beta = score;
+                            }
+                        }
+                        if(score <= alpha)
+                        {
+                            return score;
+                        }
                     }
                 }
 
-                return minEval == MAX_VALUE ? EvaluatePosition(aiPlayer) : minEval;
+                return bestValue;
             }
         }
 

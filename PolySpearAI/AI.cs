@@ -12,7 +12,7 @@ namespace PolySpearAI
     public class AI
     {
         private readonly HexGrid _grid;
-        private const int MAX_DEPTH = 6;
+        private const int MAX_DEPTH = 10;
         private const int UNIT_VALUE = 100;
 
         private const int INF = 10_000_000;
@@ -51,14 +51,14 @@ namespace PolySpearAI
             _moveFrom = null;
             _bestTarget = null;
 
-            Negamax(MAX_DEPTH, 0);
+            Negamax(MAX_DEPTH, 0, -INF, INF);
 
             Program.CurrentPlayer = _aiPlayer;
 
             return new BestMove(_moveFrom, _bestTarget, EvaluatePosition(_aiPlayer), _expectedEval);
         }
 
-        private int Negamax(int depth, int ply_from_root)
+        private int Negamax(int depth, int ply_from_root, int alpha = -INF, int beta = INF)
         {
             if (depth == 0 || _grid.IsGameOver())
             {
@@ -82,8 +82,8 @@ namespace PolySpearAI
                     _grid.MoveUnit(unit, targetHex);
 
                     Program.ChangePlayer();
-                    // Recursively call Negamax with inverted alpha/beta and color
-                    int eval = -Negamax(depth - 1, ply_from_root + 1);
+
+                    int eval = -Negamax(depth - 1, ply_from_root + 1, -beta, -alpha);
 
                     _grid.SetBoardState(preMoveBoardState);
 
@@ -95,7 +95,14 @@ namespace PolySpearAI
                         moveOrigin = currentPos;
                         bestTarget = targetHex;
                     }
+
+                    alpha = Math.Max(alpha, eval);
+                    if (alpha >= beta)
+                        break; 
                 }
+
+                if (alpha >= beta)
+                    break;
             }
 
             if (ply_from_root == 0)

@@ -43,7 +43,7 @@ namespace PolySpearAI
                         continue;
                     }
                     // Call Negamax instead of Minimax
-                    int score = -Negamax(MAX_DEPTH - 1, -INF, INF, Program.GetEnemyPlayer(aiPlayer), -1, aiPlayer);
+                    int score = -Negamax(MAX_DEPTH - 1, -INF, INF, Program.GetEnemyPlayer(aiPlayer), -1);
                     // Revert the move.
                     _grid.ApplyMove(previousMove);
                     // If this move yields a better score, update our best move.
@@ -59,7 +59,7 @@ namespace PolySpearAI
             return (bestFrom, bestTo);
         }
 
-        private int Negamax(int depth, int alpha, int beta, PLAYER currentPlayer, int color, PLAYER aiPlayer)
+        private int Negamax(int depth, int alpha, int beta, PLAYER currentPlayer, int color)
         {
             if (depth == 0 || _grid.IsGameOver())
             {
@@ -76,7 +76,7 @@ namespace PolySpearAI
                     _grid.MoveUnit(unit, simulatedTo);
 
                     // Recursively call Negamax with inverted alpha/beta and color
-                    int eval = -Negamax(depth - 1, -beta, -alpha, Program.GetEnemyPlayer(currentPlayer), -color, aiPlayer);
+                    int eval = -Negamax(depth - 1, -beta, -alpha, Program.GetEnemyPlayer(currentPlayer), -color);
 
                     _grid.ApplyMove(previousMove);
                     value = Math.Max(value, eval);

@@ -46,7 +46,7 @@ namespace PolySpearAI
                         continue;
                     }
                     // Call Negamax instead of Minimax
-                    int score = -Negamax(MAX_DEPTH - 1, -INF, INF, aiPlayer, -1);
+                    int score = Negamax(MAX_DEPTH - 1, -INF, INF, aiPlayer, 1);
                     // Revert the move.
                     _grid.ApplyMove(previousMove);
                     // If this move yields a better score, update our best move.
@@ -83,11 +83,6 @@ namespace PolySpearAI
 
                     _grid.ApplyMove(previousMove);
                     value = Math.Max(value, eval);
-                    alpha = Math.Max(alpha, eval);
-                    if (alpha >= beta)
-                    {
-                        break; // Alpha-beta pruning
-                    }
                 }
             }
             return value;

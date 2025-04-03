@@ -61,7 +61,7 @@ namespace PolySpearAI
             }
 
             int currentUnitIndex = 0;
-            PreMove lastPlace = new PreMove(_grid);
+            BoardState lastPlace = new BoardState(_grid);
 
             while (currentUnitIndex < preset.Units.Count)
             {
@@ -80,7 +80,7 @@ namespace PolySpearAI
                         placedUnits.RemoveAt(placedUnits.Count - 1);
                         currentUnitIndex--;
 
-                        _grid.ApplyMove(lastPlace);
+                        _grid.SetBoardState(lastPlace);
 
                         Console.Clear();
                         _grid.PrintGrid();
@@ -89,7 +89,7 @@ namespace PolySpearAI
                     continue;
                 }
 
-                lastPlace = new PreMove(_grid);
+                lastPlace = new BoardState(_grid);
 
                 try
                 {

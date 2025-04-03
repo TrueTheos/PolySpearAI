@@ -5,19 +5,23 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using static PolySpearAI.Unit;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace PolySpearAI
 {
     public class AI
     {
         private readonly HexGrid _grid;
-        private const int MAX_DEPTH = 7;
+        private const int MAX_DEPTH = 3;
         private const int UNIT_VALUE = 100;
 
         private const int INF = 10_000_000;
         private const int WIN_SCORE = 1_000_000;
 
         private PLAYER _aiPlayer;
+
+        private Hex _moveFrom;
+        private Hex _bestTarget;
 
         public AI(HexGrid grid)
         {
@@ -27,65 +31,55 @@ namespace PolySpearAI
         public (Hex From, Hex To) FindBestMove(PLAYER aiPlayer)
         {
             _aiPlayer = aiPlayer;
-            Hex bestFrom = null;
-            Hex bestTo = null;
-            int bestScore = -INF;
+            _moveFrom = null;
+            _bestTarget = null;
 
-            List<Unit> playerUnits = GetPlayerUnits(aiPlayer);
+            Negamax(MAX_DEPTH, aiPlayer, 1, 0);
 
-            foreach (var unit in playerUnits)
-            {
-                Hex currentPos = _grid.GetHex(unit);
-                List<Hex> moves = _grid.AllowedMoves(unit);
-                foreach (var move in moves)
-                {
-                    PreMove previousMove = new PreMove(_grid);
-                    Hex simulatedTo = _grid.GetHex(move.Q, move.R);
-                    if(!_grid.MoveUnit(unit, simulatedTo))
-                    {
-                        continue;
-                    }
-                    // Call Negamax instead of Minimax
-                    int score = Negamax(MAX_DEPTH - 1, -INF, INF, aiPlayer, 1);
-                    // Revert the move.
-                    _grid.ApplyMove(previousMove);
-                    // If this move yields a better score, update our best move.
-                    if (score > bestScore)
-                    {
-                        bestScore = score;
-                        bestFrom = currentPos;
-                        bestTo = move;
-                    }
-                }
-            }
-
-            return (bestFrom, bestTo);
+            return (_moveFrom, _bestTarget);
         }
 
-        private int Negamax(int depth, int alpha, int beta, PLAYER aiPlayer, int color)
+        private int Negamax(int depth, PLAYER aiPlayer, int color, int ply_from_root)
         {
             if (depth == 0 || _grid.IsGameOver())
             {
                 return color * EvaluatePosition();
             }
 
-            int value = -INF;
-            foreach (var unit in GetPlayerUnits(Program.GetEnemyPlayer(aiPlayer)))
+            Hex moveOrigin = null;
+            Hex bestTarget = null;
+            int bestScore = -INF;
+
+            foreach (var unit in GetPlayerUnits(aiPlayer))
             {
+                Hex currentPos = _grid.GetHex(unit);
                 foreach (var move in _grid.AllowedMoves(unit))
                 {
-                    PreMove previousMove = new PreMove(_grid);
-                    Hex simulatedTo = _grid.GetHex(move.Q, move.R);
-                    _grid.MoveUnit(unit, simulatedTo);
+                    BoardState preMoveBoardState = new BoardState(_grid);
+                    Hex targetHex = _grid.GetHex(move.Q, move.R);
+                    _grid.MoveUnit(unit, targetHex);
 
                     // Recursively call Negamax with inverted alpha/beta and color
-                    int eval = -Negamax(depth - 1, -beta, -alpha, Program.GetEnemyPlayer(aiPlayer), -color);
+                    int eval = -Negamax(depth - 1, Program.GetEnemyPlayer(aiPlayer), -color, ply_from_root + 1);
 
-                    _grid.ApplyMove(previousMove);
-                    value = Math.Max(value, eval);
+                    _grid.SetBoardState(preMoveBoardState);                  
+
+                    if(eval > bestScore)
+                    {
+                        bestScore = eval;
+                        moveOrigin = currentPos;
+                        bestTarget = targetHex;
+                    }
                 }
             }
-            return value;
+
+            if (ply_from_root == 0)
+            {
+                _moveFrom = moveOrigin;
+                _bestTarget = bestTarget;
+            }
+
+            return bestScore;
         }
 
         private List<Unit> GetPlayerUnits(PLAYER player)

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace PolySpearAI
 {
     [Serializable]
-    public sealed class PreMove
+    public sealed class BoardState
     {
         public IReadOnlyDictionary<string, Hex> UnitsPositions { get; }
         public IReadOnlyDictionary<Hex, string> HexesWithUnits { get; }
@@ -15,7 +15,7 @@ namespace PolySpearAI
 
         public Dictionary<string, HexGrid.SIDE> UnitRotations { get; }
 
-        public PreMove(HexGrid grid)
+        public BoardState(HexGrid grid)
         {
             UnitsPositions = new Dictionary<string, Hex>(grid.UnitsPositions);
 

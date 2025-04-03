@@ -11,11 +11,13 @@ namespace PolySpearAI
     public class AI
     {
         private readonly HexGrid _grid;
-        private const int MAX_DEPTH = 3;
+        private const int MAX_DEPTH = 7;
         private const int UNIT_VALUE = 100;
 
         private const int INF = 10_000_000;
         private const int WIN_SCORE = 1_000_000;
+
+        private PLAYER _aiPlayer;
 
         public AI(HexGrid grid)
         {
@@ -24,6 +26,7 @@ namespace PolySpearAI
 
         public (Hex From, Hex To) FindBestMove(PLAYER aiPlayer)
         {
+            _aiPlayer = aiPlayer;
             Hex bestFrom = null;
             Hex bestTo = null;
             int bestScore = -INF;
@@ -43,7 +46,7 @@ namespace PolySpearAI
                         continue;
                     }
                     // Call Negamax instead of Minimax
-                    int score = -Negamax(MAX_DEPTH - 1, -INF, INF, Program.GetEnemyPlayer(aiPlayer), -1);
+                    int score = -Negamax(MAX_DEPTH - 1, -INF, INF, aiPlayer, -1);
                     // Revert the move.
                     _grid.ApplyMove(previousMove);
                     // If this move yields a better score, update our best move.
@@ -59,15 +62,15 @@ namespace PolySpearAI
             return (bestFrom, bestTo);
         }
 
-        private int Negamax(int depth, int alpha, int beta, PLAYER currentPlayer, int color)
+        private int Negamax(int depth, int alpha, int beta, PLAYER aiPlayer, int color)
         {
             if (depth == 0 || _grid.IsGameOver())
             {
-                return color * EvaluatePosition(currentPlayer);
+                return color * EvaluatePosition();
             }
 
             int value = -INF;
-            foreach (var unit in GetPlayerUnits(currentPlayer))
+            foreach (var unit in GetPlayerUnits(Program.GetEnemyPlayer(aiPlayer)))
             {
                 foreach (var move in _grid.AllowedMoves(unit))
                 {
@@ -76,7 +79,7 @@ namespace PolySpearAI
                     _grid.MoveUnit(unit, simulatedTo);
 
                     // Recursively call Negamax with inverted alpha/beta and color
-                    int eval = -Negamax(depth - 1, -beta, -alpha, Program.GetEnemyPlayer(currentPlayer), -color);
+                    int eval = -Negamax(depth - 1, -beta, -alpha, Program.GetEnemyPlayer(aiPlayer), -color);
 
                     _grid.ApplyMove(previousMove);
                     value = Math.Max(value, eval);
@@ -95,12 +98,12 @@ namespace PolySpearAI
             return _grid.GetUnitsByPlayer(player).ToList();
         }
 
-        private int EvaluatePosition(PLAYER aiPlayer)
+        private int EvaluatePosition()
         {
             int score = 0;
-            PLAYER enemyPlayer = Program.GetEnemyPlayer(aiPlayer);
+            PLAYER enemyPlayer = Program.GetEnemyPlayer(_aiPlayer);
 
-            int aiUnitCount = _grid.GetUnitsByPlayer(aiPlayer).Count;
+            int aiUnitCount = _grid.GetUnitsByPlayer(_aiPlayer).Count;
             int enemyUnitCount = _grid.GetUnitsByPlayer(enemyPlayer).Count;
 
             score += (aiUnitCount - enemyUnitCount) * UNIT_VALUE;

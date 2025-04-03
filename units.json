@@ -72,5 +72,49 @@
         "AXE"
       ]
     }
+  ],
+  "Placements": [
+    {
+      "UnitId": "E4",
+      "Q": 0,
+      "R": 0,
+      "Side": 1,
+      "Player": 0
+    },
+    {
+      "UnitId": "E3",
+      "Q": 0,
+      "R": 1,
+      "Side": 1,
+      "Player": 0
+    },
+    {
+      "UnitId": "E2",
+      "Q": 0,
+      "R": 2,
+      "Side": 1,
+      "Player": 0
+    },
+    {
+      "UnitId": "O4",
+      "Q": 4,
+      "R": 0,
+      "Side": 4,
+      "Player": 1
+    },
+    {
+      "UnitId": "O3",
+      "Q": 3,
+      "R": 1,
+      "Side": 4,
+      "Player": 1
+    },
+    {
+      "UnitId": "O2",
+      "Q": 4,
+      "R": 2,
+      "Side": 4,
+      "Player": 1
+    }
   ]
 }

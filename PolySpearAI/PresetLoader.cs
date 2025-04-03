@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using static PolySpearAI.HexGrid;
+using static PolySpearAI.Unit;
 
 namespace PolySpearAI
 {
@@ -44,10 +46,20 @@ namespace PolySpearAI
     public class UnitPreset
     {
         public List<Unit> Units { get; set; }
+        public List<UnitPlacement> Placements { get; set; }
 
         public UnitPreset()
         {
             Units = new();
         }
+    }
+
+    public class UnitPlacement
+    {
+        public string UnitId { get; set; }
+        public int Q { get; set; }
+        public int R { get; set; }
+        public SIDE Side { get; set; }
+        public PLAYER Player { get; set; }
     }
 }

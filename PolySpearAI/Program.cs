@@ -12,6 +12,8 @@ namespace PolySpearAI
         public const string PRESET_FILE_PATH = "units.json";
         public static PLAYER CurrentPlayer = PLAYER.ELF;
 
+        public static HashSet<Unit> Units { get; private set; } = new();
+
         private static HexGrid _grid;
         static void Main(string[] args)
         {
@@ -24,16 +26,41 @@ namespace PolySpearAI
             }
             UnitPreset preset = PresetLoader.LoadPresets(PRESET_FILE_PATH);
 
+            foreach (var unit in preset.Units)
+            {
+                Units.Add(unit);
+            }
+
             PlaceUnits(preset);
 
-            GameLoop(); 
+            Console.WriteLine("Autoplay? (y/n): ");
+            string autoplay = Console.ReadLine();
+
+            if (autoplay.ToLower() == "y")
+            {
+                AILoop();
+            }
+            else
+            {
+                GameLoop();
+            }
         }
 
         private static void PlaceUnits(UnitPreset preset)
         {
             List<(Unit Unit, int Q, int R, SIDE Side)> placedUnits = new List<(Unit, int, int, SIDE)>();
-            int currentUnitIndex = 0;
 
+            if (preset.Placements != null && preset.Placements.Count > 0)
+            {
+                Console.Write("Initial placements found. Do you want to load them? (y/n): ");
+                string loadInput = Console.ReadLine();
+                if (loadInput.Trim().ToLower() == "y")
+                {
+                    LoadPlacement(preset, placedUnits);
+                }
+            }
+
+            int currentUnitIndex = 0;
             PreMove lastPlace = new PreMove(_grid);
 
             while (currentUnitIndex < preset.Units.Count)
@@ -112,6 +139,43 @@ namespace PolySpearAI
             }
         }
 
+        private static void LoadPlacement(UnitPreset preset, List<(Unit Unit, int Q, int R, SIDE Side)> placedUnits)
+        {
+            List<Unit> autoPlacedUnits = new List<Unit>();
+
+            foreach (var placement in preset.Placements)
+            {
+                var unit = preset.Units.FirstOrDefault(u => u.ID == placement.UnitId);
+                if (unit != null)
+                {
+                    Hex targetHex = _grid.GetHex(placement.Q, placement.R);
+                    if (targetHex == null)
+                    {
+                        Console.WriteLine($"Warning: Invalid hex coordinates for unit {unit.ID} in placement.");
+                        continue;
+                    }
+                    if (_grid.GetUnitAtHex(targetHex) != null)
+                    {
+                        Console.WriteLine($"Warning: Hex {placement.Q},{placement.R} already occupied. Skipping placement for unit {unit.ID}.");
+                        continue;
+                    }
+                    unit.Player = placement.Player;
+                    _grid.PlaceUnit(placement.Q, placement.R, unit, placement.Side);
+                    placedUnits.Add((unit, placement.Q, placement.R, placement.Side));
+                    autoPlacedUnits.Add(unit);
+                }
+                else
+                {
+                    Console.WriteLine($"Warning: No unit with ID {placement.UnitId} found for placement.");
+                }
+            }
+
+            preset.Units = preset.Units.Except(autoPlacedUnits).ToList();
+
+            Console.Clear();
+            _grid.PrintGrid();
+        }
+
         private static void GameLoop()
         {
             while (true)
@@ -119,8 +183,23 @@ namespace PolySpearAI
                 Console.Clear();
                 _grid.PrintGrid();
                 Console.WriteLine($"Curent player: {CurrentPlayer}\n");
+
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
                 AI ai = new AI(_grid);
-                ai.FindBestMove();
+                (Hex from, Hex to) bestMove = ai.FindBestMove(CurrentPlayer);
+
+                stopwatch.Stop();
+
+                if (bestMove.from != null)
+                {
+                    Console.WriteLine($"\nAI Suggestion: Move from ({bestMove.from.Q},{bestMove.from.R}) to ({bestMove.to.Q},{bestMove.to.R})");
+                    Console.WriteLine($"Time: {stopwatch.ElapsedMilliseconds}ms");
+                }
+                else
+                {
+                    Console.WriteLine("\nAI Suggestion: No valid moves available.");
+                }
 
                 Console.WriteLine("\nEnter unit coordinates to move (q,r), 'u' to undo, 's' to skip, 'exit':");
                 string input = Console.ReadLine();
@@ -196,7 +275,53 @@ namespace PolySpearAI
                 _grid.PrintGrid();
             }
         }
-        
+
+        private static void AILoop()
+        {
+            long totalTime = 0;
+            int moveCount = 0;
+
+            while (true)
+            {
+                Console.Clear();
+                _grid.PrintGrid();
+                Console.WriteLine($"Current player: {CurrentPlayer}\n");
+                if(moveCount > 0) Console.WriteLine($"Average time per move: {totalTime / moveCount} ms");
+
+                AI ai = new AI(_grid);
+
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                (Hex from, Hex to) bestMove = ai.FindBestMove(CurrentPlayer);
+                stopwatch.Stop();
+
+                totalTime += stopwatch.ElapsedMilliseconds;
+                moveCount++;
+
+                if (!_grid.IsGameOver() && bestMove.from != null)
+                {
+                    bool success = _grid.MoveUnit(_grid.GetUnitAtHex(bestMove.from), bestMove.to);
+                    if (success)
+                    {
+                        ChangePlayer();
+                    }
+                }
+                else
+                {
+                    if (_grid.IsGameOver())
+                    {
+                        Console.WriteLine($"GAME ENDED {_grid.GetWinner()} won!");
+                    }
+                    else
+                    {
+                        Console.WriteLine("\nAI Suggestion: No valid moves available.");
+                    }
+                    break;
+                }
+
+                System.Threading.Thread.Sleep(500);
+            }
+        }
+
         private static void ChangePlayer()
         {
             CurrentPlayer = CurrentPlayer == PLAYER.ELF ? PLAYER.ORC : PLAYER.ELF;

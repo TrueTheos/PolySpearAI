@@ -30,7 +30,7 @@ namespace PolySpearAI
 
         public Dictionary<string, Hex> UnitsPositions { get; private set; } = new();
         public Dictionary<Hex, string> HexesWithUnits { get; private set; } = new();
-        public HashSet<Unit> AllUnits { get; private set; } = new();
+        public Dictionary<string, Unit> AliveUnits { get; private set; } = new();
 
         public Stack<PreMove> MoveHistory = new();
 
@@ -75,7 +75,8 @@ namespace PolySpearAI
 
         public Unit GetUnitById(string id)
         {
-            return AllUnits.FirstOrDefault(x => x.ID == id);
+            if (AliveUnits.TryGetValue(id, out Unit unit)) return unit;
+            return null;
         }
 
         public Unit GetUnitAtHex(Hex hex)
@@ -84,7 +85,7 @@ namespace PolySpearAI
             HexesWithUnits.TryGetValue(hex, out string? unitID);
             if (unitID == null) return null;
 
-            return AllUnits.FirstOrDefault(x => x.ID == unitID);
+            return GetUnitById(unitID);
         }
 
         public SIDE DirectionTo(Hex start, Hex neighbor)
@@ -179,11 +180,11 @@ namespace PolySpearAI
         {
             UnitsPositions = new Dictionary<string, Hex>(move.UnitsPositions);
             HexesWithUnits = new Dictionary<Hex, string>(move.HexesWithUnits);
-            AllUnits = new HashSet<Unit>(move.AllUnits);
+            AliveUnits = new Dictionary<string, Unit>(move.AliveUnits);
 
-            foreach (var unit in AllUnits)
+            foreach (var unit in AliveUnits)
             {
-                unit.Rotation = move.UnitRotations[unit.ID];
+                AliveUnits[unit.Key].Rotation = move.UnitRotations[unit.Key];
             }
         }
 
@@ -465,12 +466,12 @@ namespace PolySpearAI
         {
             HexesWithUnits.Remove(UnitsPositions[unit.ID]);
             UnitsPositions.Remove(unit.ID);
-            AllUnits.Remove(unit);
+            AliveUnits.Remove(unit.ID);
         }
 
         public HashSet<Unit> GetUnitsByPlayer(PLAYER player)
         {
-            return AllUnits.Where(x => x.Player == player).ToHashSet();
+            return AliveUnits.Values.Where(x => x.Player == player).ToHashSet();
         }
 
         public void PlaceUnit(int q, int r, Unit unit, SIDE facing)
@@ -487,10 +488,27 @@ namespace PolySpearAI
                 Console.WriteLine($"Hex ({q},{r}) is already occupied by {occupant}.");
                 return;
             }
-            AllUnits.Add(unit);
+            AliveUnits[unit.ID] = unit;
             UnitsPositions[unit.ID] = hex;
             HexesWithUnits[hex] = unit.ID;
             unit.Rotation = facing;
+        }
+
+        public bool IsGameOver()
+        {
+            bool elfHasUnits = GetUnitsByPlayer(PLAYER.ELF).Any();
+            bool orcHasUnits = GetUnitsByPlayer(PLAYER.ORC).Any();
+
+            return !elfHasUnits || !orcHasUnits;
+        }
+
+        public PLAYER GetWinner()
+        {
+            int elf = GetUnitsByPlayer(PLAYER.ELF).Count;
+            int orc = GetUnitsByPlayer(PLAYER.ORC).Count;
+
+            if (elf > orc) return PLAYER.ELF;
+            else return PLAYER.ORC;
         }
 
         public void PrintGrid()

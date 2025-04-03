@@ -11,7 +11,7 @@ namespace PolySpearAI
     {
         public IReadOnlyDictionary<string, Hex> UnitsPositions { get; }
         public IReadOnlyDictionary<Hex, string> HexesWithUnits { get; }
-        public IReadOnlySet<Unit> AllUnits { get; }
+        public Dictionary<string, Unit> AliveUnits { get; }
 
         public Dictionary<string, HexGrid.SIDE> UnitRotations { get; }
 
@@ -21,13 +21,13 @@ namespace PolySpearAI
 
             HexesWithUnits = new Dictionary<Hex, string>(grid.HexesWithUnits);
 
-            AllUnits = new HashSet<Unit>(grid.AllUnits.Select(u => u with { }));
+            AliveUnits = new Dictionary<string, Unit>(grid.AliveUnits);
 
             UnitRotations = new();
 
-            foreach (var unit in AllUnits)
+            foreach (var unit in AliveUnits)
             {
-                UnitRotations[unit.ID] = unit.Rotation;
+                UnitRotations[unit.Key] = unit.Value.Rotation;
             }
         }
     }

@@ -22,13 +22,30 @@ namespace PolySpearAI
 
         private Hex _moveFrom;
         private Hex _bestTarget;
+        private int _expectedEval;
 
         public AI(HexGrid grid)
         {
             _grid = grid;
         }
 
-        public (Hex From, Hex To) FindBestMove(PLAYER aiPlayer)
+        public struct BestMove
+        {
+            public Hex From;
+            public Hex To;
+            public int CurrentEval;
+            public int EvalAfterMove;
+
+            public BestMove(Hex from, Hex to, int currentEval, int evalAfterMove)
+            {
+                From = from;
+                To = to;
+                CurrentEval = currentEval;
+                EvalAfterMove = evalAfterMove;
+            }
+        }
+
+        public BestMove FindBestMove(PLAYER aiPlayer)
         {
             _aiPlayer = aiPlayer;
             _moveFrom = null;
@@ -38,7 +55,7 @@ namespace PolySpearAI
 
             Program.CurrentPlayer = _aiPlayer;
 
-            return (_moveFrom, _bestTarget);
+            return new BestMove(_moveFrom, _bestTarget, EvaluatePosition(_aiPlayer), _expectedEval);
         }
 
         private int Negamax(int depth, int ply_from_root)
@@ -56,17 +73,20 @@ namespace PolySpearAI
             foreach (var unit in units)
             {
                 Hex currentPos = _grid.GetHex(unit);
-                foreach (var move in _grid.AllowedMoves(unit))
+                List<Hex> allowedMoves = _grid.AllowedMoves(unit);
+                foreach (var move in allowedMoves)
                 {
                     BoardState preMoveBoardState = new BoardState(_grid);
                     PLAYER prePlayer = Program.CurrentPlayer;
                     Hex targetHex = _grid.GetHex(move.Q, move.R);
                     _grid.MoveUnit(unit, targetHex);
+
                     Program.ChangePlayer();
                     // Recursively call Negamax with inverted alpha/beta and color
                     int eval = -Negamax(depth - 1, ply_from_root + 1);
 
                     _grid.SetBoardState(preMoveBoardState);
+
                     Program.CurrentPlayer = prePlayer;
 
                     if (eval > bestScore)
@@ -82,6 +102,7 @@ namespace PolySpearAI
             {
                 _moveFrom = moveOrigin;
                 _bestTarget = bestTarget;
+                _expectedEval = bestScore;
             }
 
             return bestScore;

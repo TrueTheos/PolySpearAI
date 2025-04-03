@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Text.Json.Serialization;
 using static PolySpearAI.Unit;
 using static PolySpearAI.HexGrid;
+using static PolySpearAI.AI;
 
 namespace PolySpearAI
 {
@@ -187,13 +188,14 @@ namespace PolySpearAI
                 Stopwatch stopwatch = new Stopwatch();
                 stopwatch.Start();
                 AI ai = new AI(_grid);
-                (Hex from, Hex to) bestMove = ai.FindBestMove(CurrentPlayer);
+                BestMove bestMove = ai.FindBestMove(CurrentPlayer);
 
                 stopwatch.Stop();
 
-                if (bestMove.from != null)
+                if (bestMove.From != null)
                 {
-                    Console.WriteLine($"\nAI Suggestion: Move from ({bestMove.from.Q},{bestMove.from.R}) to ({bestMove.to.Q},{bestMove.to.R})");
+                    Console.WriteLine($"\nAI Suggestion: Move from ({bestMove.From.Q},{bestMove.From.R}) to ({bestMove.To.Q},{bestMove.To.R})");
+                    Console.WriteLine($"Eval: {bestMove.CurrentEval} -> {bestMove.EvalAfterMove}");
                     Console.WriteLine($"Time: {stopwatch.ElapsedMilliseconds}ms");
                 }
                 else
@@ -291,15 +293,15 @@ namespace PolySpearAI
                 AI ai = new AI(_grid);
 
                 Stopwatch stopwatch = Stopwatch.StartNew();
-                (Hex from, Hex to) bestMove = ai.FindBestMove(CurrentPlayer);
+                BestMove bestMove = ai.FindBestMove(CurrentPlayer);
                 stopwatch.Stop();
 
                 totalTime += stopwatch.ElapsedMilliseconds;
                 moveCount++;
 
-                if (!_grid.IsGameOver() && bestMove.from != null)
+                if (!_grid.IsGameOver() && bestMove.From != null)
                 {
-                    bool success = _grid.MoveUnit(_grid.GetUnitAtHex(bestMove.from), bestMove.to);
+                    bool success = _grid.MoveUnit(_grid.GetUnitAtHex(bestMove.From), bestMove.To);
                     if (success)
                     {
                         ChangePlayer();

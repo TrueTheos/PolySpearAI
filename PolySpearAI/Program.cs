@@ -10,7 +10,7 @@ namespace PolySpearAI
     internal class Program
     {
         public const string PRESET_FILE_PATH = "units.json";
-        public static PLAYER CurrentPlayer { get; private set; } = PLAYER.ELF;
+        public static PLAYER CurrentPlayer { get; set; } = PLAYER.ELF;
 
         public static HashSet<Unit> Units { get; private set; } = new();
 
@@ -322,7 +322,7 @@ namespace PolySpearAI
             }
         }
 
-        private static void ChangePlayer()
+        public static void ChangePlayer()
         {
             CurrentPlayer = CurrentPlayer == PLAYER.ELF ? PLAYER.ORC : PLAYER.ELF;
         }

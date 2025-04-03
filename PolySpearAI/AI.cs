@@ -12,7 +12,7 @@ namespace PolySpearAI
     public class AI
     {
         private readonly HexGrid _grid;
-        private const int MAX_DEPTH = 3;
+        private const int MAX_DEPTH = 6;
         private const int UNIT_VALUE = 100;
 
         private const int INF = 10_000_000;
@@ -34,37 +34,42 @@ namespace PolySpearAI
             _moveFrom = null;
             _bestTarget = null;
 
-            Negamax(MAX_DEPTH, aiPlayer, 1, 0);
+            Negamax(MAX_DEPTH, 0);
+
+            Program.CurrentPlayer = _aiPlayer;
 
             return (_moveFrom, _bestTarget);
         }
 
-        private int Negamax(int depth, PLAYER aiPlayer, int color, int ply_from_root)
+        private int Negamax(int depth, int ply_from_root)
         {
             if (depth == 0 || _grid.IsGameOver())
             {
-                return color * EvaluatePosition();
+                return EvaluatePosition(Program.CurrentPlayer);
             }
 
             Hex moveOrigin = null;
             Hex bestTarget = null;
             int bestScore = -INF;
 
-            foreach (var unit in GetPlayerUnits(aiPlayer))
+            List<Unit> units = GetPlayerUnits(Program.CurrentPlayer);
+            foreach (var unit in units)
             {
                 Hex currentPos = _grid.GetHex(unit);
                 foreach (var move in _grid.AllowedMoves(unit))
                 {
                     BoardState preMoveBoardState = new BoardState(_grid);
+                    PLAYER prePlayer = Program.CurrentPlayer;
                     Hex targetHex = _grid.GetHex(move.Q, move.R);
                     _grid.MoveUnit(unit, targetHex);
-
+                    Program.ChangePlayer();
                     // Recursively call Negamax with inverted alpha/beta and color
-                    int eval = -Negamax(depth - 1, Program.GetEnemyPlayer(aiPlayer), -color, ply_from_root + 1);
+                    int eval = -Negamax(depth - 1, ply_from_root + 1);
 
-                    _grid.SetBoardState(preMoveBoardState);                  
+                    _grid.SetBoardState(preMoveBoardState);
+                    Program.CurrentPlayer = prePlayer;
 
-                    if(eval > bestScore)
+                    if (eval > bestScore)
                     {
                         bestScore = eval;
                         moveOrigin = currentPos;
@@ -87,12 +92,12 @@ namespace PolySpearAI
             return _grid.GetUnitsByPlayer(player).ToList();
         }
 
-        private int EvaluatePosition()
+        private int EvaluatePosition(PLAYER currentPlayer)
         {
             int score = 0;
-            PLAYER enemyPlayer = Program.GetEnemyPlayer(_aiPlayer);
+            PLAYER enemyPlayer = Program.GetEnemyPlayer(currentPlayer);
 
-            int aiUnitCount = _grid.GetUnitsByPlayer(_aiPlayer).Count;
+            int aiUnitCount = _grid.GetUnitsByPlayer(currentPlayer).Count;
             int enemyUnitCount = _grid.GetUnitsByPlayer(enemyPlayer).Count;
 
             score += (aiUnitCount - enemyUnitCount) * UNIT_VALUE;
@@ -100,7 +105,7 @@ namespace PolySpearAI
             if (enemyUnitCount == 0)
                 return WIN_SCORE;
             if (aiUnitCount == 0)
-                return -INF;
+                return -WIN_SCORE;
 
             return score;
         }

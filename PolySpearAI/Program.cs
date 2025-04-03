@@ -179,6 +179,8 @@ namespace PolySpearAI
 
         private static void GameLoop()
         {
+            BoardState lastState = new BoardState(_grid);
+
             while (true)
             {
                 Console.Clear();
@@ -214,8 +216,12 @@ namespace PolySpearAI
                 }
                 else if (input.ToLower() == "u")
                 {
-                    if (_grid.UndoMove()) ChangePlayer();
-                    _grid.MoveHistory = new();
+                    if (lastState != null)
+                    {
+                        _grid.SetBoardState(lastState);
+                        lastState = null;
+                        ChangePlayer();
+                    }
                     continue;
                 }
 
@@ -272,7 +278,11 @@ namespace PolySpearAI
                 Hex destination = allowedList[moveIndex].hex;
 
                 bool success = _grid.MoveUnit(selectedUnit, destination);
-                if (success) ChangePlayer();
+                if (success)
+                {
+                    lastState = new BoardState(_grid);
+                    ChangePlayer();
+                }
 
                 _grid.PrintGrid();
             }

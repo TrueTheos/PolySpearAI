@@ -32,8 +32,6 @@ namespace PolySpearAI
         public Dictionary<Hex, string> HexesWithUnits { get; private set; } = new();
         public Dictionary<string, Unit> AliveUnits { get; private set; } = new();
 
-        public Stack<BoardState> MoveHistory = new();
-
         public enum SIDE
         {
             UP_RIGHT = 0,
@@ -164,16 +162,7 @@ namespace PolySpearAI
 
             SIDE moveDirection = DirectionTo(from, to);
 
-            MoveHistory.Push(new BoardState(this));
             return PerformMovement(unit, from, to, moveDirection);
-        }
-
-        public bool UndoMove()
-        {
-            if (MoveHistory.Count == 0) return false;
-            BoardState move = MoveHistory.Pop();
-            SetBoardState(move);
-            return true;
         }
 
         public void SetBoardState(BoardState move)

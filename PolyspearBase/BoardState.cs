@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PolySpearAI
+namespace PolyspearLib
 {
     [Serializable]
     public sealed class BoardState

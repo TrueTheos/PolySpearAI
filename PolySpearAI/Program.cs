@@ -2,24 +2,18 @@
 using System;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
-using static PolySpearAI.Unit;
-using static PolySpearAI.HexGrid;
-using static PolySpearAI.AI;
-
+using PolyspearLib;
 namespace PolySpearAI
 {
     internal class Program
     {
         public const string PRESET_FILE_PATH = "units.json";
-        public static PLAYER CurrentPlayer { get; set; } = PLAYER.ELF;
 
-        public static HashSet<Unit> Units { get; private set; } = new();
+        private static PolyspearBase _base;
 
-        private static HexGrid _grid;
         static void Main(string[] args)
         {
-            _grid = new HexGrid(5, 5);
-            _grid.PrintGrid();
+            _base = new PolyspearBase(5);
 
             if (!File.Exists(PRESET_FILE_PATH))
             {
@@ -29,10 +23,10 @@ namespace PolySpearAI
 
             foreach (var unit in preset.Units)
             {
-                Units.Add(unit);
+                PolyspearLib.PolyspearBase.Units.Add(unit);
             }
 
-            PlaceUnits(preset);
+            PolyspearLib.PolyspearBase.PlaceUnits(preset);
 
             Console.WriteLine("Autoplay? (y/n): ");
             string autoplay = Console.ReadLine();
@@ -47,135 +41,9 @@ namespace PolySpearAI
             }
         }
 
-        private static void PlaceUnits(UnitPreset preset)
-        {
-            List<(Unit Unit, int Q, int R, SIDE Side)> placedUnits = new List<(Unit, int, int, SIDE)>();
+        
 
-            if (preset.Placements != null && preset.Placements.Count > 0)
-            {
-                Console.Write("Initial placements found. Do you want to load them? (y/n): ");
-                string loadInput = Console.ReadLine();
-                if (loadInput.Trim().ToLower() == "y")
-                {
-                    LoadPlacement(preset, placedUnits);
-                }
-            }
-
-            int currentUnitIndex = 0;
-            BoardState lastPlace = new BoardState(_grid);
-
-            while (currentUnitIndex < preset.Units.Count)
-            {
-                Console.WriteLine();
-                Unit currentUnit = preset.Units[currentUnitIndex];
-                Console.Write($"Place {currentUnit.ID} (q r side player) or 'u' to undo: ");
-                string input = Console.ReadLine();
-
-                // Handle undo
-                if (input.ToLower() == "u")
-                {
-                    if (lastPlace == null) continue;
-                    if (currentUnitIndex > 0 && placedUnits.Count > 0)
-                    {
-                        var lastPlaced = placedUnits[placedUnits.Count - 1];
-                        placedUnits.RemoveAt(placedUnits.Count - 1);
-                        currentUnitIndex--;
-
-                        _grid.SetBoardState(lastPlace);
-
-                        Console.Clear();
-                        _grid.PrintGrid();
-                    }
-
-                    continue;
-                }
-
-                lastPlace = new BoardState(_grid);
-
-                try
-                {
-                    if (input.Length < 4)
-                    {
-                        throw new Exception("Input too short");
-                    }
-
-                    int q = int.Parse(input[0].ToString());
-                    int r = int.Parse(input[1].ToString());
-                    int sideValue = int.Parse(input[2].ToString());
-                    int playerValue = int.Parse(input[3].ToString());
-
-                    if (sideValue < 0 || sideValue > Enum.GetValues(typeof(SIDE)).Length - 1)
-                    {
-                        throw new Exception($"Invalid side value: {sideValue}");
-                    }
-
-                    if (playerValue != (int)PLAYER.ELF && playerValue != (int)PLAYER.ORC)
-                    {
-                        throw new Exception($"Invalid player value: {playerValue}");
-                    }
-
-                    Hex targetHex = _grid.GetHex(q, r);
-                    if (targetHex == null)
-                    {
-                        throw new Exception($"Invalid hex coordinates: {q},{r}");
-                    }
-
-                    if (_grid.GetUnitAtHex(targetHex) != null)
-                    {
-                        throw new Exception($"Hex {q},{r} is already occupied");
-                    }
-
-                    currentUnit.Player = (PLAYER)playerValue;
-                    _grid.PlaceUnit(q, r, currentUnit, (SIDE)sideValue);
-                    placedUnits.Add((currentUnit, q, r, (SIDE)sideValue));
-                    currentUnitIndex++;
-
-                    Console.Clear();
-                    _grid.PrintGrid();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Invalid input: {ex.Message}. Please try again.");
-                }
-            }
-        }
-
-        private static void LoadPlacement(UnitPreset preset, List<(Unit Unit, int Q, int R, SIDE Side)> placedUnits)
-        {
-            List<Unit> autoPlacedUnits = new List<Unit>();
-
-            foreach (var placement in preset.Placements)
-            {
-                var unit = preset.Units.FirstOrDefault(u => u.ID == placement.UnitId);
-                if (unit != null)
-                {
-                    Hex targetHex = _grid.GetHex(placement.Q, placement.R);
-                    if (targetHex == null)
-                    {
-                        Console.WriteLine($"Warning: Invalid hex coordinates for unit {unit.ID} in placement.");
-                        continue;
-                    }
-                    if (_grid.GetUnitAtHex(targetHex) != null)
-                    {
-                        Console.WriteLine($"Warning: Hex {placement.Q},{placement.R} already occupied. Skipping placement for unit {unit.ID}.");
-                        continue;
-                    }
-                    unit.Player = placement.Player;
-                    _grid.PlaceUnit(placement.Q, placement.R, unit, placement.Side);
-                    placedUnits.Add((unit, placement.Q, placement.R, placement.Side));
-                    autoPlacedUnits.Add(unit);
-                }
-                else
-                {
-                    Console.WriteLine($"Warning: No unit with ID {placement.UnitId} found for placement.");
-                }
-            }
-
-            preset.Units = preset.Units.Except(autoPlacedUnits).ToList();
-
-            Console.Clear();
-            _grid.PrintGrid();
-        }
+        
 
         private static void GameLoop()
         {

@@ -4,9 +4,8 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static PolySpearAI.Unit;
 
-namespace PolySpearAI
+namespace PolyspearLib
 {
     public class HexGrid
     {
@@ -31,16 +30,6 @@ namespace PolySpearAI
         public Dictionary<string, Hex> UnitsPositions { get; private set; } = new();
         public Dictionary<Hex, string> HexesWithUnits { get; private set; } = new();
         public Dictionary<string, Unit> AliveUnits { get; private set; } = new();
-
-        public enum SIDE
-        {
-            UP_RIGHT = 0,
-            RIGHT = 1,
-            DOWN_RIGHT = 2,
-            DOWN_LEFT = 3,
-            LEFT = 4,
-            UP_LEFT = 5
-        }
         private static readonly SIDE[] _sides = (SIDE[])Enum.GetValues(typeof(SIDE));
 
         public HexGrid(int width, int height)
